@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/client';
+import { requireAuth } from '@/lib/auth';
 import { notifyScheduleStart } from '@/lib/line/notification';
 
 // 候補日一覧取得
@@ -50,6 +51,10 @@ export async function POST(
   { params }: { params: Promise<{ wishId: string }> }
 ) {
   try {
+    // 認証確認
+    const auth = await requireAuth(request);
+    if (auth instanceof Response) return auth;
+
     const { wishId } = await params;
     const body = await request.json();
     const { dates, voteDeadline } = body;

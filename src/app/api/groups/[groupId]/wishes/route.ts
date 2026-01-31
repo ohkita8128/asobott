@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/client';
+import { requireAuth } from '@/lib/auth';
 
 // 行きたいリスト取得
 export async function GET(
@@ -48,9 +49,14 @@ export async function POST(
   { params }: { params: Promise<{ groupId: string }> }
 ) {
   try {
+    // 認証確認
+    const auth = await requireAuth(request);
+    if (auth instanceof Response) return auth;
+    const { userId: lineUserId } = auth;
+
     const { groupId } = await params;
     const body = await request.json();
-    const { title, description, lineUserId, isAnonymous, startDate, startTime, endDate, endTime, isAllDay } = body;
+    const { title, description, isAnonymous, startDate, startTime, endDate, endTime, isAllDay } = body;
 
     // ユーザーID取得
     const { data: userData, error: userError } = await supabase

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/client';
+import { requireAuth } from '@/lib/auth';
 
 // 興味追加
 export async function POST(
@@ -7,9 +8,12 @@ export async function POST(
   { params }: { params: Promise<{ wishId: string }> }
 ) {
   try {
+    // 認証確認
+    const auth = await requireAuth(request);
+    if (auth instanceof Response) return auth;
+    const { userId: lineUserId } = auth;
+
     const { wishId } = await params;
-    const body = await request.json();
-    const { lineUserId } = body;
 
     // ユーザーID取得
     const { data: userData, error: userError } = await supabase
@@ -54,13 +58,12 @@ export async function DELETE(
   { params }: { params: Promise<{ wishId: string }> }
 ) {
   try {
-    const { wishId } = await params;
-    const { searchParams } = new URL(request.url);
-    const lineUserId = searchParams.get('lineUserId');
+    // 認証確認
+    const auth = await requireAuth(request);
+    if (auth instanceof Response) return auth;
+    const { userId: lineUserId } = auth;
 
-    if (!lineUserId) {
-      return NextResponse.json({ error: 'lineUserId required' }, { status: 400 });
-    }
+    const { wishId } = await params;
 
     // ユーザーID取得
     const { data: userData, error: userError } = await supabase

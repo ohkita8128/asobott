@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/client';
+import { requireAuth } from '@/lib/auth';
 
 // 設定取得
 export async function GET(
@@ -47,6 +48,10 @@ export async function PATCH(
   { params }: { params: Promise<{ groupId: string }> }
 ) {
   try {
+    // 認証確認
+    const auth = await requireAuth(request);
+    if (auth instanceof Response) return auth;
+
     const { groupId } = await params;
     const body = await request.json();
 

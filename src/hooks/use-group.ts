@@ -13,7 +13,7 @@ type Group = {
 };
 
 export function useGroup() {
-  const { profile, context, isReady } = useLiff();
+  const { profile, context, accessToken, isReady } = useLiff();
   const searchParams = useSearchParams();
   const [groupId, setGroupId] = useState<string | null>(null);
   const [groupName, setGroupName] = useState<string | null>(null);
@@ -105,6 +105,7 @@ export function useGroup() {
     setGroupName,
     allGroups: userGroups || [],
     myUserId,
+    accessToken,
     isLoading: !isReady || (isLoadingGroups && !groupId),
     isReady,
     profile,

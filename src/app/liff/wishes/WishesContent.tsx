@@ -4,11 +4,12 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { useGroup } from '@/hooks/use-group';
 import { useWishes } from '@/hooks/use-wishes';
+import { authRequest } from '@/lib/swr/fetcher';
 import { WishListSkeleton } from '../components/Skeleton';
 import ErrorRetry from '../components/ErrorRetry';
 
 export default function WishesContent() {
-  const { groupId, profile, isLoading: isGroupLoading, myUserId } = useGroup();
+  const { groupId, profile, isLoading: isGroupLoading, myUserId, accessToken } = useGroup();
   const { wishes, isLoading: isWishesLoading, error: wishesError, refresh, refreshWishes } = useWishes(groupId);
   
   const [localInterests, setLocalInterests] = useState<Record<string, boolean>>({});
@@ -38,17 +39,17 @@ export default function WishesContent() {
       try {
         if (action.type === 'interest') {
           if (action.value === 'add') {
-            await fetch(`/api/wishes/${action.wishId}/interest`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lineUserId: profile?.userId }) });
+            await authRequest(`/api/wishes/${action.wishId}/interest`, 'POST', accessToken);
           } else {
-            await fetch(`/api/wishes/${action.wishId}/interest?lineUserId=${profile?.userId}`, { method: 'DELETE' });
+            await authRequest(`/api/wishes/${action.wishId}/interest`, 'DELETE', accessToken);
           }
         } else if (action.type === 'vote') {
-          await fetch(`/api/wishes/${action.wishId}/response`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lineUserId: profile?.userId, response: action.value }) });
+          await authRequest(`/api/wishes/${action.wishId}/response`, 'POST', accessToken, { response: action.value });
         }
       } catch (err) { console.error(err); }
     }
     refreshWishes();
-  }, [profile?.userId, refreshWishes]);
+  }, [accessToken, refreshWishes]);
 
   const toggleInterest = (wishId: string) => {
     const current = localInterests[wishId];
@@ -60,7 +61,7 @@ export default function WishesContent() {
 
   const startVoting = async (wishId: string) => {
     try {
-      await fetch(`/api/wishes/${wishId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ votingStarted: true }) });
+      await authRequest(`/api/wishes/${wishId}`, 'PATCH', accessToken, { votingStarted: true });
       refreshWishes();
     } catch (err) { console.error(err); }
   };
@@ -68,7 +69,7 @@ export default function WishesContent() {
   const deleteWish = async (wishId: string) => {
     if (!confirm('削除しますか？')) return;
     try {
-      await fetch(`/api/wishes/${wishId}`, { method: 'DELETE' });
+      await authRequest(`/api/wishes/${wishId}`, 'DELETE', accessToken);
       refreshWishes();
     } catch (err) { console.error(err); alert('削除に失敗しました'); }
   };

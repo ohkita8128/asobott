@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/client';
+import { requireAuth } from '@/lib/auth';
 
 // 投票保存
 export async function POST(
@@ -7,11 +8,16 @@ export async function POST(
   { params }: { params: Promise<{ wishId: string }> }
 ) {
   try {
+    // 認証確認
+    const auth = await requireAuth(request);
+    if (auth instanceof Response) return auth;
+    const { userId: lineUserId } = auth;
+
     const { wishId } = await params;
     const body = await request.json();
-    const { lineUserId, votes } = body;
+    const { votes } = body;
 
-    if (!lineUserId || !votes || !Array.isArray(votes)) {
+    if (!votes || !Array.isArray(votes)) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
 

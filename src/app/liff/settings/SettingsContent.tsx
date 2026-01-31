@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useLiff } from '@/hooks/use-liff';
 import { useSearchParams } from 'next/navigation';
+import { authRequest } from '@/lib/swr/fetcher';
 import Link from 'next/link';
 
 type GroupSettings = {
@@ -17,7 +18,7 @@ type GroupSettings = {
 };
 
 export default function SettingsContent() {
-  const { profile, context, isReady } = useLiff();
+  const { profile, context, accessToken, isReady } = useLiff();
   const searchParams = useSearchParams();
   const [groupId, setGroupId] = useState<string | null>(null);
   const [groupName, setGroupName] = useState<string | null>(null);
@@ -74,12 +75,7 @@ export default function SettingsContent() {
     if (!groupId || !settings) return;
     setIsSaving(true);
     try {
-      const res = await fetch(`/api/groups/${groupId}/settings`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [key]: value })
-      });
-      const data = await res.json();
+      const data = await authRequest(`/api/groups/${groupId}/settings`, 'PATCH', accessToken, { [key]: value });
       if (data && !data.error) {
         setSettings(data);
       }
@@ -244,7 +240,15 @@ export default function SettingsContent() {
           >
             利用規約
           </a>
-          <p className="text-xs text-slate-300">あそボット v1.2.0</p>
+          <a 
+            href="https://docs.google.com/forms/d/e/1FAIpQLSeaPG1tmJtwvwZ1aaKb_kTGAL0KyKUYzZ79YZav6lj112zWKA/viewform"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-emerald-600 hover:underline"
+          >
+            📝 ご意見・ご要望
+          </a>
+          <p className="text-xs text-slate-300">あそボット v1.3.0</p>
         </div>
       </main>
 

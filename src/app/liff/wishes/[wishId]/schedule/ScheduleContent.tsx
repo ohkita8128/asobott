@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useLiff } from '@/hooks/use-liff';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
+import { authRequest } from '@/lib/swr/fetcher';
 import Link from 'next/link';
 
 export default function ScheduleContent() {
-  const { profile, isReady } = useLiff();
+  const { profile, accessToken, isReady } = useLiff();
   const router = useRouter();
   const searchParams = useSearchParams();
   const params = useParams();
@@ -42,16 +43,8 @@ export default function ScheduleContent() {
     setIsSubmitting(true);
     try {
       const voteDeadline = deadline ? `${deadline}T${deadlineTime}:00` : null;
-      const res = await fetch(`/api/wishes/${wishId}/schedule`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dates: selectedDates.sort(), voteDeadline })
-      });
-      if (res.ok) {
-        router.push(`/liff/wishes/${wishId}/schedule/vote?groupId=${groupId}`);
-      } else {
-        alert('作成に失敗しました');
-      }
+      await authRequest(`/api/wishes/${wishId}/schedule`, 'POST', accessToken, { dates: selectedDates.sort(), voteDeadline });
+      router.push(`/liff/wishes/${wishId}/schedule/vote?groupId=${groupId}`);
     } catch (err) { alert('作成に失敗しました'); }
     finally { setIsSubmitting(false); }
   };

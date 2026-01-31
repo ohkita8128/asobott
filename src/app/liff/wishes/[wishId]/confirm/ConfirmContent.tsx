@@ -6,12 +6,13 @@ import Link from 'next/link';
 import { useGroup } from '@/hooks/use-group';
 import { useWish } from '@/hooks/use-wishes';
 import { useMembers } from '@/hooks/use-members';
+import { authRequest } from '@/lib/swr/fetcher';
 
 export default function ConfirmContent() {
   const params = useParams();
   const wishId = params.wishId as string;
   
-  const { groupId, profile, isLoading: isGroupLoading } = useGroup();
+  const { groupId, profile, isLoading: isGroupLoading, accessToken } = useGroup();
   const { wish, isLoading: isWishLoading, refreshWishes } = useWish(groupId, wishId);
   const { members, isLoading: isMembersLoading } = useMembers(groupId);
   
@@ -35,17 +36,13 @@ export default function ConfirmContent() {
     if (!profile) return;
     setIsSaving(true);
     try {
-      await fetch(`/api/wishes/${wishId}/response`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lineUserId: profile.userId, response: myVote })
-      });
+      await authRequest(`/api/wishes/${wishId}/response`, 'POST', accessToken, { response: myVote });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       refreshWishes();
     } catch (err) { console.error(err); }
     finally { setIsSaving(false); }
-  }, [wishId, profile, myVote, refreshWishes]);
+  }, [wishId, accessToken, myVote, refreshWishes]);
 
   const formatDateTime = () => {
     if (!wish?.start_date) return '';

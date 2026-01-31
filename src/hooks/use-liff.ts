@@ -17,6 +17,7 @@ type GroupContext = {
 export function useLiff() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [context, setContext] = useState<GroupContext>({ groupId: null, type: null });
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,6 +30,10 @@ export function useLiff() {
           liff.login();
           return;
         }
+
+        // アクセストークン取得
+        const token = liff.getAccessToken();
+        setAccessToken(token);
 
         // プロフィール取得
         const userProfile = await liff.getProfile();
@@ -54,5 +59,5 @@ export function useLiff() {
     initLiff();
   }, []);
 
-  return { profile, context, isReady, error, liff };
+  return { profile, context, accessToken, isReady, error, liff };
 }

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useGroup } from '@/hooks/use-group';
 import { useWish } from '@/hooks/use-wishes';
 import { useSchedule } from '@/hooks/use-schedule';
+import { authRequest } from '@/lib/swr/fetcher';
 
 const ROW1 = [
   { value: 'ok', label: '◯', short: '◯', color: 'bg-emerald-500' },
@@ -24,7 +25,7 @@ export default function VoteContent() {
   const params = useParams();
   const wishId = params.wishId as string;
   
-  const { groupId, profile, isLoading: isGroupLoading, myUserId } = useGroup();
+  const { groupId, profile, isLoading: isGroupLoading, myUserId, accessToken } = useGroup();
   const { wish, isLoading: isWishLoading, refreshWishes } = useWish(groupId, wishId);
   const { candidates, isLoading: isScheduleLoading, refreshSchedule } = useSchedule(wishId);
   
@@ -59,17 +60,13 @@ export default function VoteContent() {
       .filter(([_, v]) => v)
       .map(([candidateId, availability]) => ({ candidateId, availability }));
     try {
-      await fetch(`/api/wishes/${wishId}/schedule/vote`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lineUserId: profile.userId, votes })
-      });
+      await authRequest(`/api/wishes/${wishId}/schedule/vote`, 'POST', accessToken, { votes });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       refreshSchedule();
     } catch (err) { console.error(err); }
     finally { setIsSaving(false); }
-  }, [wishId, profile, refreshSchedule]);
+  }, [wishId, accessToken, refreshSchedule]);
 
   const handleVote = (candidateId: string, value: string) => {
     const newValue = myVotes[candidateId] === value ? '' : value;
@@ -91,11 +88,7 @@ export default function VoteContent() {
   const confirmDate = async (date: string) => {
     setIsConfirming(true);
     try {
-      await fetch(`/api/wishes/${wishId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirmedDate: date })
-      });
+      await authRequest(`/api/wishes/${wishId}`, 'PATCH', accessToken, { confirmedDate: date });
       refreshWishes();
       router.push(`/liff/wishes?groupId=${groupId}`);
     } catch (err) { 

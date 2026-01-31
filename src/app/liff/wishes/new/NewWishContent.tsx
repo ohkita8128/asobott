@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useLiff } from '@/hooks/use-liff';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { authRequest } from '@/lib/swr/fetcher';
 import Link from 'next/link';
 
 export default function NewWishContent() {
-  const { profile, context, isReady, error } = useLiff();
+  const { profile, context, accessToken, isReady, error } = useLiff();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [title, setTitle] = useState('');
@@ -57,7 +58,6 @@ export default function NewWishContent() {
       const body: Record<string, unknown> = {
         title: title.trim(),
         description: description.trim() || null,
-        lineUserId: profile.userId,
         isAnonymous: false,
       };
       
@@ -69,14 +69,8 @@ export default function NewWishContent() {
         body.isAllDay = isAllDay;
       }
       
-      const res = await fetch(`/api/groups/${groupId}/wishes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      
-      if (res.ok) router.push(`/liff/wishes?groupId=${groupId}`);
-      else alert('追加に失敗しました');
+      await authRequest(`/api/groups/${groupId}/wishes`, 'POST', accessToken, body);
+      router.push(`/liff/wishes?groupId=${groupId}`);
     } catch (err) { alert('追加に失敗しました'); }
     finally { setIsSubmitting(false); }
   };

@@ -5,13 +5,14 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useGroup } from '@/hooks/use-group';
 import { useWish } from '@/hooks/use-wishes';
+import { authRequest } from '@/lib/swr/fetcher';
 
 export default function EditWishContent() {
   const router = useRouter();
   const params = useParams();
   const wishId = params.wishId as string;
   
-  const { groupId, profile, isLoading: isGroupLoading, myUserId } = useGroup();
+  const { groupId, profile, isLoading: isGroupLoading, myUserId, accessToken } = useGroup();
   const { wish, isLoading: isWishLoading, refreshWishes } = useWish(groupId, wishId);
   
   const [title, setTitle] = useState('');
@@ -67,16 +68,9 @@ export default function EditWishContent() {
         body.isAllDay = false;
       }
       
-      const res = await fetch(`/api/wishes/${wishId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      
-      if (res.ok) {
-        refreshWishes();
-        router.push(`/liff/wishes?groupId=${groupId}`);
-      } else alert('更新に失敗しました');
+      await authRequest(`/api/wishes/${wishId}`, 'PATCH', accessToken, body);
+      refreshWishes();
+      router.push(`/liff/wishes?groupId=${groupId}`);
     } catch (err) { alert('更新に失敗しました'); }
     finally { setIsSubmitting(false); }
   };

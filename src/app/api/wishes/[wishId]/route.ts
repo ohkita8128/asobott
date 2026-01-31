@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/client';
+import { requireAuth } from '@/lib/auth';
 import { notifyConfirmStart, notifyDateConfirmed } from '@/lib/line/notification';
 
 // 行きたい更新
@@ -8,6 +9,10 @@ export async function PATCH(
   { params }: { params: Promise<{ wishId: string }> }
 ) {
   try {
+    // 認証確認
+    const auth = await requireAuth(request);
+    if (auth instanceof Response) return auth;
+
     const { wishId } = await params;
     const body = await request.json();
     const { 
@@ -97,7 +102,34 @@ export async function DELETE(
   { params }: { params: Promise<{ wishId: string }> }
 ) {
   try {
+    // 認証確認
+    const auth = await requireAuth(request);
+    if (auth instanceof Response) return auth;
+    const { userId: lineUserId } = auth;
+
     const { wishId } = await params;
+
+    // ユーザーID取得
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('line_user_id', lineUserId)
+      .single();
+
+    if (!userData) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // 作成者チェック
+    const { data: wish } = await supabase
+      .from('wishes')
+      .select('created_by')
+      .eq('id', wishId)
+      .single();
+
+    if (!wish || wish.created_by !== userData.id) {
+      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+    }
 
     const { error } = await supabase
       .from('wishes')

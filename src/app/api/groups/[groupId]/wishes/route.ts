@@ -44,7 +44,7 @@ export async function POST(
   try {
     const { groupId } = await params;
     const body = await request.json();
-    const { title, description, lineUserId, isAnonymous } = body;
+    const { title, description, lineUserId, isAnonymous, startDate, startTime, endDate, endTime, isAllDay } = body;
 
     // ユーザーID取得
     const { data: userData, error: userError } = await supabase
@@ -66,6 +66,11 @@ export async function POST(
         description,
         created_by: userData.id,
         is_anonymous: isAnonymous ?? false,
+        start_date: startDate || null,
+        start_time: startTime || null,
+        end_date: endDate || null,
+        end_time: endTime || null,
+        is_all_day: isAllDay ?? false,
       })
       .select()
       .single();

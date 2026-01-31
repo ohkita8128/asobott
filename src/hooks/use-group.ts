@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { useLiff } from './use-liff';
@@ -17,6 +17,7 @@ export function useGroup() {
   const searchParams = useSearchParams();
   const [groupId, setGroupId] = useState<string | null>(null);
   const [groupName, setGroupName] = useState<string | null>(null);
+  const registeredRef = useRef(false);
 
   // URLパラメータからgroupIdを取得
   const paramGroupId = searchParams.get('groupId');
@@ -29,13 +30,42 @@ export function useGroup() {
   );
 
   // ユーザーの所属グループを取得
-  const { data: userGroups, isLoading: isLoadingGroups } = useSWR<Group[]>(
+  const { data: userGroups, isLoading: isLoadingGroups, mutate: mutateUserGroups } = useSWR<Group[]>(
     profile?.userId ? swrKeys.userGroups(profile.userId) : null,
     fetcher
   );
 
   // グループIDとユーザーIDを取得
   const myUserId = userGroups?.[0]?.user_id || null;
+
+  // LIFF開いた時にユーザーを自動登録
+  useEffect(() => {
+    if (!isReady || !profile || registeredRef.current) return;
+    registeredRef.current = true;
+
+    const registerUser = async () => {
+      try {
+        await fetch('/api/register-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lineUserId: profile.userId,
+            displayName: profile.displayName,
+            pictureUrl: profile.pictureUrl,
+            lineGroupId: lineGroupId,
+          }),
+        });
+        // グループ登録後にリストを更新
+        if (lineGroupId) {
+          mutateUserGroups();
+        }
+      } catch (err) {
+        console.error('Error registering user:', err);
+      }
+    };
+
+    registerUser();
+  }, [isReady, profile, lineGroupId, mutateUserGroups]);
 
   useEffect(() => {
     if (!isReady) return;

@@ -75,7 +75,21 @@ async function handleFollow(event: WebhookEvent & { type: 'follow' }) {
       replyToken: event.replyToken,
       messages: [{
         type: 'text',
-        text: `${profile.displayName}さん、こんにちは！\nあそボット へようこそ 🎉\n\nグループに招待すると、予定調整ができるようになります！`,
+        text: `ようこそ、あそボットと申します 🎩
+
+「行きたい」を気軽に言い合える場所を作り、
+皆様が集まる機会をもっと増やすお手伝いをいたします。
+
+■ できること
+・行きたい場所をみんなで出し合う
+・人気の候補をお知らせ
+・日程調整から参加確認まで
+
+「いつか行きたいね」を「この日に行こう！」へ。
+わたくしにお任せください。
+
+まずはグループへお招きを。
+下部メニューより管理画面もご利用いただけます。`,
       }],
     });
   } catch (error) {
@@ -89,6 +103,8 @@ async function handleJoin(event: WebhookEvent & { type: 'join' }) {
   if (source.type !== 'group') return;
 
   const groupId = source.groupId;
+  const liffUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}`;
+  const botFriendUrl = process.env.LINE_BOT_FRIEND_URL || 'https://line.me/R/ti/p/@asobott';
 
   try {
     // グループ名を取得
@@ -100,7 +116,7 @@ async function handleJoin(event: WebhookEvent & { type: 'join' }) {
       console.log('Could not get group name:', e);
     }
 
-    const { data: groupData, error } = await supabase
+    const { error } = await supabase
       .from('groups')
       .upsert({
         line_group_id: groupId,
@@ -118,54 +134,105 @@ async function handleJoin(event: WebhookEvent & { type: 'join' }) {
       console.log('Group saved:', groupName || groupId);
     }
 
-    // 既存メンバーを全員取得して登録
-    if (groupData) {
-      try {
-        const memberIds = await lineClient.getGroupMembersIds(groupId!);
-        console.log(`Found ${memberIds.memberIds.length} existing members`);
-        
-        for (const memberId of memberIds.memberIds) {
-          try {
-            const profile = await lineClient.getGroupMemberProfile(groupId!, memberId);
-            
-            const { data: userData } = await supabase
-              .from('users')
-              .upsert({
-                line_user_id: memberId,
-                display_name: profile.displayName,
-                picture_url: profile.pictureUrl,
-                updated_at: new Date().toISOString(),
-              }, {
-                onConflict: 'line_user_id',
-              })
-              .select()
-              .single();
-
-            if (userData) {
-              await supabase
-                .from('group_members')
-                .upsert({
-                  group_id: groupData.id,
-                  user_id: userData.id,
-                }, {
-                  onConflict: 'group_id,user_id',
-                });
-              console.log('Existing member registered:', profile.displayName);
-            }
-          } catch (memberErr) {
-            console.error('Error registering member:', memberId, memberErr);
-          }
-        }
-      } catch (membersErr) {
-        console.error('Error getting group members:', membersErr);
-      }
-    }
-
     await lineClient.replyMessage({
       replyToken: event.replyToken,
       messages: [{
-        type: 'text',
-        text: `グループに参加しました！🎉\n\nこれから予定調整をお手伝いします。\n「メニュー」と送ると管理画面を開けます！`,
+        type: 'flex',
+        altText: 'あそボットが参加しました',
+        contents: {
+          type: 'bubble',
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: 'お招きありがとうございます 🎩',
+                weight: 'bold',
+                size: 'md',
+              },
+              {
+                type: 'text',
+                text: 'あそボットと申します。',
+                size: 'sm',
+                color: '#666666',
+                margin: 'sm',
+              },
+              {
+                type: 'text',
+                text: '皆様が集まる機会、もっと増やしましょう。',
+                size: 'sm',
+                color: '#666666',
+                margin: 'md',
+                wrap: true,
+              },
+              {
+                type: 'separator',
+                margin: 'lg',
+              },
+              {
+                type: 'text',
+                text: '💡 使い方',
+                weight: 'bold',
+                size: 'sm',
+                margin: 'lg',
+              },
+              {
+                type: 'text',
+                text: '1. 行きたい場所を誰でも追加できます\n2. 興味ある人が「行きたい！」と反応\n3. 盛り上がったら日程調整 → 決定！',
+                size: 'xs',
+                color: '#666666',
+                margin: 'sm',
+                wrap: true,
+              },
+              {
+                type: 'separator',
+                margin: 'lg',
+              },
+              {
+                type: 'text',
+                text: '📱 友達登録がおすすめ',
+                weight: 'bold',
+                size: 'sm',
+                margin: 'lg',
+              },
+              {
+                type: 'text',
+                text: '登録いただくと、下部メニューからいつでも管理画面を開けます。投票や追加がワンタップで便利です。',
+                size: 'xs',
+                color: '#666666',
+                margin: 'sm',
+                wrap: true,
+              },
+            ],
+          },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'button',
+                style: 'primary',
+                color: '#22c55e',
+                action: {
+                  type: 'uri',
+                  label: '管理画面を開く',
+                  uri: liffUrl,
+                },
+              },
+              {
+                type: 'button',
+                style: 'secondary',
+                action: {
+                  type: 'uri',
+                  label: '友達登録する',
+                  uri: botFriendUrl,
+                },
+              },
+            ],
+          },
+        },
       }],
     });
   } catch (error) {
@@ -396,13 +463,13 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
             contents: [
               {
                 type: 'text',
-                text: '📱 あそボット',
+                text: '🎩 あそボット',
                 weight: 'bold',
                 size: 'lg',
               },
               {
                 type: 'text',
-                text: '予定を管理しよう！',
+                text: 'ご用命はこちらから。',
                 size: 'sm',
                 color: '#666666',
                 margin: 'md',
@@ -429,77 +496,6 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
         },
       }],
     });
-  }
-
-  // メンバー同期コマンド
-  if ((text === '同期' || text === 'sync') && event.source.type === 'group') {
-    const groupId = event.source.groupId;
-    
-    try {
-      const { data: groupData } = await supabase
-        .from('groups')
-        .select('id')
-        .eq('line_group_id', groupId)
-        .single();
-
-      if (!groupData) {
-        await lineClient.replyMessage({
-          replyToken: event.replyToken,
-          messages: [{ type: 'text', text: 'グループが見つかりません' }],
-        });
-        return;
-      }
-
-      const memberIds = await lineClient.getGroupMembersIds(groupId!);
-      let syncCount = 0;
-      
-      for (const memberId of memberIds.memberIds) {
-        try {
-          const profile = await lineClient.getGroupMemberProfile(groupId!, memberId);
-          
-          const { data: userData } = await supabase
-            .from('users')
-            .upsert({
-              line_user_id: memberId,
-              display_name: profile.displayName,
-              picture_url: profile.pictureUrl,
-              updated_at: new Date().toISOString(),
-            }, {
-              onConflict: 'line_user_id',
-            })
-            .select()
-            .single();
-
-          if (userData) {
-            await supabase
-              .from('group_members')
-              .upsert({
-                group_id: groupData.id,
-                user_id: userData.id,
-              }, {
-                onConflict: 'group_id,user_id',
-              });
-            syncCount++;
-          }
-        } catch (memberErr) {
-          console.error('Error syncing member:', memberId, memberErr);
-        }
-      }
-
-      await lineClient.replyMessage({
-        replyToken: event.replyToken,
-        messages: [{ 
-          type: 'text', 
-          text: `✅ メンバーを同期しました！\n${syncCount}人のメンバーを登録しました。` 
-        }],
-      });
-    } catch (err) {
-      console.error('Error in sync command:', err);
-      await lineClient.replyMessage({
-        replyToken: event.replyToken,
-        messages: [{ type: 'text', text: '同期に失敗しました' }],
-      });
-    }
   }
 }
 

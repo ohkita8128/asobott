@@ -211,54 +211,40 @@ export default function SettingsContent() {
 
           {/* 提案頻度 */}
           {settings?.suggest_enabled && (
-            <>
-              <div className="p-4 border-b border-slate-100">
-                <p className="text-sm text-slate-700 mb-2">提案頻度</p>
-                <div className="flex gap-2">
-                  {[14, 30, 60].map((days) => (
-                    <button
-                      key={days}
-                      onClick={() => updateSetting('suggest_interval_days', days)}
-                      disabled={isSaving}
-                      className={`px-3 py-1.5 text-sm rounded-lg transition ${
-                        settings?.suggest_interval_days === days
-                          ? 'bg-emerald-500 text-white'
-                          : 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      {days === 14 ? '2週間' : days === 30 ? '1ヶ月' : '2ヶ月'}
-                    </button>
-                  ))}
-                </div>
+            <div className="p-4">
+              <p className="text-sm text-slate-700 mb-2">提案頻度</p>
+              <div className="flex gap-2">
+                {[14, 30, 60].map((days) => (
+                  <button
+                    key={days}
+                    onClick={() => updateSetting('suggest_interval_days', days)}
+                    disabled={isSaving}
+                    className={`px-3 py-1.5 text-sm rounded-lg transition ${
+                      settings?.suggest_interval_days === days
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {days === 14 ? '2週間' : days === 30 ? '1ヶ月' : '2ヶ月'}
+                  </button>
+                ))}
               </div>
-
-              {/* 最低興味あり人数 */}
-              <div className="p-4">
-                <p className="text-sm text-slate-700 mb-2">提案条件</p>
-                <div className="flex gap-2">
-                  {[2, 3, 5].map((count) => (
-                    <button
-                      key={count}
-                      onClick={() => updateSetting('suggest_min_interests', count)}
-                      disabled={isSaving}
-                      className={`px-3 py-1.5 text-sm rounded-lg transition ${
-                        settings?.suggest_min_interests === count
-                          ? 'bg-emerald-500 text-white'
-                          : 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      {count}人以上興味あり
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
+              <p className="text-xs text-slate-400 mt-2">※ 2人以上が興味ありの候補を提案します</p>
+            </div>
           )}
         </div>
 
-        {/* バージョン */}
-        <div className="text-center pt-4">
-          <p className="text-xs text-slate-300">あそボット v1.1.0</p>
+        {/* リンク */}
+        <div className="text-center pt-4 space-y-2">
+          <a 
+            href="/terms" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-xs text-slate-400 hover:text-slate-600"
+          >
+            利用規約
+          </a>
+          <p className="text-xs text-slate-300">あそボット v1.2.0</p>
         </div>
       </main>
 

@@ -5,7 +5,24 @@ import { useLiff } from '@/hooks/use-liff';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-type Wish = { id: string; title: string; interests: { id: string }[] };
+type WishResponse = {
+  id: string;
+  user_id: string;
+  response: 'ok' | 'maybe' | 'ng';
+  users: { display_name: string };
+};
+
+type Wish = {
+  id: string;
+  title: string;
+  status: 'open' | 'voting' | 'confirmed';
+  start_date: string | null;
+  start_time: string | null;
+  voting_started: boolean;
+  vote_deadline: string | null;
+  interests: { id: string; users: { display_name: string } }[];
+  wish_responses: WishResponse[];
+};
 
 export default function LiffContent() {
   const { profile, context, isReady, error } = useLiff();
@@ -44,14 +61,92 @@ export default function LiffContent() {
   useEffect(() => {
     const fetchWishes = async () => {
       if (!groupId) return;
-      try { const res = await fetch(`/api/groups/${groupId}/wishes`); const data = await res.json(); if (Array.isArray(data)) setWishes(data.slice(0, 3)); } catch (err) { console.error(err); }
+      try {
+        const res = await fetch(`/api/groups/${groupId}/wishes`);
+        const data = await res.json();
+        if (Array.isArray(data)) setWishes(data);
+      } catch (err) { console.error(err); }
     };
     fetchWishes();
   }, [groupId]);
 
+  // 自分が未回答の投票（参加確認または日程調整）
+  const getUnansweredVotes = () => {
+    return wishes.filter(w => {
+      if (!w.voting_started && w.status !== 'voting') return false;
+      // 参加確認の場合
+      if (w.start_date && w.voting_started) {
+        const myRes = w.wish_responses?.find(r => r.users?.display_name === profile?.displayName);
+        return !myRes;
+      }
+      // 日程調整の場合（status === 'voting'で日付なし）
+      if (!w.start_date && w.status === 'voting') {
+        // 日程調整の未回答チェックは複雑なのでここでは単純に表示
+        return true;
+      }
+      return false;
+    });
+  };
+
+  // 直近の予定（日時ありのもの、投票中含む）
+  const getUpcomingEvents = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return wishes
+      .filter(w => w.start_date)
+      .filter(w => {
+        const [y, m, d] = w.start_date!.split('-').map(Number);
+        return new Date(y, m - 1, d) >= today;
+      })
+      .sort((a, b) => (a.start_date || '').localeCompare(b.start_date || ''))
+      .slice(0, 5);
+  };
+
+  // 人気な行きたいリスト（興味が多い順）
+  const getPopularWishes = () => {
+    return [...wishes]
+      .filter(w => !w.start_date && w.status === 'open')
+      .sort((a, b) => b.interests.length - a.interests.length)
+      .slice(0, 5);
+  };
+
+  const formatDateTime = (wish: Wish) => {
+    if (!wish.start_date) return '';
+    const [y, m, d] = wish.start_date.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    const wd = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
+    let str = `${m}/${d}(${wd})`;
+    if (wish.start_time) str += ` ${wish.start_time.slice(0, 5)}`;
+    return str;
+  };
+
+  const formatDeadline = (deadline: string) => {
+    const d = new Date(deadline);
+    const now = new Date();
+    const diff = d.getTime() - now.getTime();
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    if (diff < 0) return '締め切りました';
+    if (days === 0) return '今日まで';
+    if (days === 1) return '明日まで';
+    return `あと${days}日`;
+  };
+
+  const getResponseCounts = (wish: Wish) => {
+    if (!wish.wish_responses) return { ok: 0, maybe: 0, ng: 0 };
+    return {
+      ok: wish.wish_responses.filter(r => r.response === 'ok').length,
+      maybe: wish.wish_responses.filter(r => r.response === 'maybe').length,
+      ng: wish.wish_responses.filter(r => r.response === 'ng').length,
+    };
+  };
+
   if (!isReady) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="w-8 h-8 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" /></div>;
   if (error) return <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4"><div className="bg-white rounded-xl border p-6 text-center"><p className="text-red-500">{error}</p></div></div>;
   if (loadingState || fetchError) return <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4"><div className="bg-white rounded-xl border border-slate-200 p-6 max-w-sm w-full text-center">{loadingState && <><div className="w-8 h-8 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin mx-auto" /><p className="text-sm text-slate-500 mt-3">{loadingState}</p></>}{fetchError && <p className="text-sm text-slate-500 whitespace-pre-line">{fetchError}</p>}</div></div>;
+
+  const unanswered = getUnansweredVotes();
+  const upcoming = getUpcomingEvents();
+  const popular = getPopularWishes();
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
@@ -64,26 +159,115 @@ export default function LiffContent() {
           </div>
         </div>
       </header>
-      <main className="px-4 py-6 space-y-6">
+
+      <main className="p-4 space-y-4">
+        {/* 未回答の投票 */}
+        {unanswered.length > 0 && (
+          <section>
+            <h2 className="text-sm font-semibold text-slate-900 mb-2">🔔 回答が必要</h2>
+            <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
+              {unanswered.map((wish) => (
+                <Link
+                  key={wish.id}
+                  href={wish.start_date ? `/liff/wishes?groupId=${groupId}` : `/liff/wishes/${wish.id}/schedule/vote?groupId=${groupId}`}
+                  className="flex items-center justify-between px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">{wish.title}</p>
+                    <p className="text-xs text-slate-400">
+                      {wish.start_date ? '参加確認' : '日程調整'}
+                      {wish.vote_deadline && <span className="text-orange-500 ml-2">⏰ {formatDeadline(wish.vote_deadline)}</span>}
+                    </p>
+                  </div>
+                  <svg className="w-5 h-5 text-slate-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* 直近の予定 */}
         <section>
-          <div className="flex items-center justify-between mb-3"><h2 className="text-sm font-semibold text-slate-900">今後の予定</h2></div>
-          <div className="bg-white rounded-xl border border-slate-200 p-4"><p className="text-sm text-slate-400 text-center py-6">予定はまだありません</p></div>
-        </section>
-        <section>
-          <div className="flex items-center justify-between mb-3"><h2 className="text-sm font-semibold text-slate-900">行きたいリスト</h2><Link href={`/liff/wishes?groupId=${groupId}`} className="text-sm text-emerald-600 font-medium">すべて見る</Link></div>
-          {wishes.length === 0 ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-4"><p className="text-sm text-slate-400 text-center py-6">行きたい場所を追加しよう</p><Link href={`/liff/wishes/new?groupId=${groupId}`} className="block w-full text-center py-2.5 bg-slate-900 text-white text-sm font-medium rounded-lg">追加する</Link></div>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold text-slate-900">📅 直近の予定</h2>
+            <Link href={`/liff/calendar?groupId=${groupId}`} className="text-xs text-emerald-600">すべて見る</Link>
+          </div>
+          {upcoming.length === 0 ? (
+            <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
+              <p className="text-sm text-slate-400">予定はまだありません</p>
+            </div>
           ) : (
-            <div className="space-y-2">{wishes.map((wish) => (<Link key={wish.id} href={`/liff/wishes?groupId=${groupId}`} className="block bg-white rounded-xl border border-slate-200 p-4"><div className="flex items-center justify-between"><span className="text-sm font-medium text-slate-900">{wish.title}</span><span className="text-xs text-slate-400">{wish.interests.length}人が興味あり</span></div></Link>))}</div>
+            <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
+              {upcoming.map((wish) => {
+                const counts = getResponseCounts(wish);
+                return (
+                  <Link key={wish.id} href={`/liff/wishes?groupId=${groupId}`} className="flex items-center justify-between px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">{wish.title}</p>
+                      <p className="text-xs text-emerald-600">{formatDateTime(wish)}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {wish.voting_started ? (
+                        <span className="text-xs text-slate-400">
+                          <span className="text-emerald-500">◯{counts.ok}</span>
+                          <span className="text-amber-500 ml-1">△{counts.maybe}</span>
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">{wish.interests.length}人</span>
+                      )}
+                      {wish.voting_started && <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-600 rounded">投票中</span>}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
           )}
         </section>
+
+        {/* 人気の行きたいリスト */}
+        <section>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold text-slate-900">🔥 人気の行きたい</h2>
+            <Link href={`/liff/wishes?groupId=${groupId}`} className="text-xs text-emerald-600">すべて見る</Link>
+          </div>
+          {popular.length === 0 ? (
+            <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
+              <p className="text-sm text-slate-400 mb-3">行きたい場所を追加しよう</p>
+              <Link href={`/liff/wishes/new?groupId=${groupId}`} className="inline-block px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg">追加する</Link>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
+              {popular.map((wish) => (
+                <Link key={wish.id} href={`/liff/wishes?groupId=${groupId}`} className="flex items-center justify-between px-4 py-3">
+                  <p className="text-sm font-medium text-slate-900 truncate">{wish.title}</p>
+                  <span className="text-xs text-slate-400 flex-shrink-0">{wish.interests.length}人が興味あり</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* クイックアクション */}
         <section>
           <div className="grid grid-cols-2 gap-3">
-            <Link href={`/liff/wishes/new?groupId=${groupId}`} className="bg-white rounded-xl border border-slate-200 p-4"><div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center mb-3"><svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg></div><p className="text-sm font-medium text-slate-900">行きたい追加</p><p className="text-xs text-slate-400 mt-0.5">新しい候補を提案</p></Link>
-            <Link href={`/liff/calendar?groupId=${groupId}`} className="bg-white rounded-xl border border-slate-200 p-4"><div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center mb-3"><svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div><p className="text-sm font-medium text-slate-900">カレンダー</p><p className="text-xs text-slate-400 mt-0.5">予定を確認</p></Link>
+            <Link href={`/liff/wishes/new?groupId=${groupId}`} className="bg-white rounded-xl border border-slate-200 p-4">
+              <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center mb-3">
+                <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+              </div>
+              <p className="text-sm font-medium text-slate-900">行きたい追加</p>
+              <p className="text-xs text-slate-400 mt-0.5">新しい候補を提案</p>
+            </Link>
+            <Link href={`/liff/calendar?groupId=${groupId}`} className="bg-white rounded-xl border border-slate-200 p-4">
+              <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center mb-3">
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              </div>
+              <p className="text-sm font-medium text-slate-900">カレンダー</p>
+              <p className="text-xs text-slate-400 mt-0.5">予定を確認</p>
+            </Link>
           </div>
         </section>
       </main>
+
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200">
         <div className="flex justify-around py-2">
           <Link href={`/liff?groupId=${groupId}`} className="flex flex-col items-center py-1 px-3"><svg className="w-6 h-6 text-slate-900" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg><span className="text-xs text-slate-900 mt-1">ホーム</span></Link>

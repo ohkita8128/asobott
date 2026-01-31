@@ -23,6 +23,8 @@ type Wish = {
   end_time: string | null;
   is_all_day: boolean;
   voting_started: boolean;
+  vote_deadline: string | null;
+  confirmed_date: string | null;
   created_by: string;
   created_by_user: { display_name: string; picture_url: string | null } | null;
   interests: { id: string; user_id: string; users: { display_name: string; picture_url: string | null } }[];
@@ -154,7 +156,37 @@ export default function WishesContent() {
     const [y, m, d] = wish.start_date.split('-').map(Number);
     const date = new Date(y, m - 1, d);
     const wd = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
-    return `${m}/${d}(${wd})`;
+    
+    let str = `${m}/${d}(${wd})`;
+    if (!wish.is_all_day && wish.start_time) {
+      str += ` ${wish.start_time.slice(0, 5)}`;
+    }
+    
+    if (wish.end_date && wish.end_date !== wish.start_date) {
+      const [ey, em, ed] = wish.end_date.split('-').map(Number);
+      const edate = new Date(ey, em - 1, ed);
+      const ewd = ['日', '月', '火', '水', '木', '金', '土'][edate.getDay()];
+      str += ` ~ ${em}/${ed}(${ewd})`;
+      if (!wish.is_all_day && wish.end_time) {
+        str += ` ${wish.end_time.slice(0, 5)}`;
+      }
+    } else if (!wish.is_all_day && wish.end_time) {
+      str += ` ~ ${wish.end_time.slice(0, 5)}`;
+    }
+    
+    return str;
+  };
+
+  const formatDeadline = (deadline: string) => {
+    const d = new Date(deadline);
+    const now = new Date();
+    const diff = d.getTime() - now.getTime();
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    
+    if (diff < 0) return '締め切りました';
+    if (days === 0) return '今日まで';
+    if (days === 1) return '明日まで';
+    return `あと${days}日`;
   };
 
   const getResponseCounts = (wish: Wish) => {
@@ -195,20 +227,16 @@ export default function WishesContent() {
             const hasInterest = localInterests[wish.id] ?? false;
             const myVote = localVotes[wish.id] || '';
             const counts = getResponseCounts(wish);
-            const isVoting = wish.voting_started;
+            const isVoting = wish.voting_started || wish.status === 'voting';
             const interestCount = wish.interests.length + (hasInterest && !wish.interests.some(i => i.users?.display_name === profile?.displayName) ? 1 : 0) - (!hasInterest && wish.interests.some(i => i.users?.display_name === profile?.displayName) ? 1 : 0);
             
             return (
               <div key={wish.id} className="px-4 py-4">
-                {/* タイトル行 */}
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-base text-slate-900">{wish.title}</h3>
-                      <span className="text-sm text-slate-400">{interestCount}人が興味あり</span>
-                    </div>
-                    {hasDateTime && <p className="text-sm text-emerald-600 mt-1">📅 {formatDateTime(wish)}</p>}
-                    {wish.description && <p className="text-sm text-slate-500 mt-1">{wish.description}</p>}
+                {/* 1行目: タイトル + 人数 */}
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-semibold text-base text-slate-900">{wish.title}</h3>
+                    <span className="text-sm text-slate-400">{interestCount}人が興味あり</span>
                   </div>
                   {canDelete(wish) && (
                     <button onClick={() => deleteWish(wish.id)} className="text-slate-300 hover:text-red-500 p-1 ml-2">
@@ -217,56 +245,83 @@ export default function WishesContent() {
                   )}
                 </div>
 
-                {/* アクション */}
-                {isVoting ? (
-                  <div className="flex items-center gap-3">
-                    <div className="flex gap-2">
-                      {(['ok', 'maybe', 'ng'] as const).map((v) => (
-                        <button
-                          key={v}
-                          onClick={() => handleVote(wish.id, v)}
-                          className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
-                            myVote === v
-                              ? (v === 'ok' ? 'bg-emerald-500 text-white' : v === 'maybe' ? 'bg-amber-500 text-white' : 'bg-red-500 text-white')
-                              : 'bg-slate-100 text-slate-600'
-                          }`}
-                        >
-                          {v === 'ok' ? '◯' : v === 'maybe' ? '△' : '✕'}
-                        </button>
-                      ))}
+                {/* 2行目: 日時 */}
+                {hasDateTime && (
+                  <p className="text-sm text-emerald-600 mt-1">📅 {formatDateTime(wish)}</p>
+                )}
+
+                {/* 締め切り表示 */}
+                {wish.vote_deadline && isVoting && (
+                  <p className="text-xs text-orange-500 mt-1">⏰ {formatDeadline(wish.vote_deadline)}</p>
+                )}
+
+                {/* 3行目: 説明 */}
+                {wish.description && (
+                  <p className="text-sm text-slate-500 mt-1">{wish.description}</p>
+                )}
+
+                {/* 4行目: ボタン */}
+                <div className="mt-3">
+                  {isVoting && hasDateTime ? (
+                    <div className="flex items-center gap-3">
+                      <div className="flex gap-2">
+                        {(['ok', 'maybe', 'ng'] as const).map((v) => (
+                          <button
+                            key={v}
+                            onClick={() => handleVote(wish.id, v)}
+                            className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
+                              myVote === v
+                                ? (v === 'ok' ? 'bg-emerald-500 text-white' : v === 'maybe' ? 'bg-amber-500 text-white' : 'bg-red-500 text-white')
+                                : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {v === 'ok' ? '◯' : v === 'maybe' ? '△' : '✕'}
+                          </button>
+                        ))}
+                      </div>
+                      <span className="text-sm text-slate-400">
+                        <span className="text-emerald-500">◯{counts.ok}</span>
+                        <span className="text-amber-500 ml-2">△{counts.maybe}</span>
+                        <span className="text-red-500 ml-2">✕{counts.ng}</span>
+                      </span>
                     </div>
-                    <span className="text-sm text-slate-400">
-                      <span className="text-emerald-500">◯{counts.ok}</span>
-                      <span className="text-amber-500 ml-2">△{counts.maybe}</span>
-                      <span className="text-red-500 ml-2">✕{counts.ng}</span>
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => toggleInterest(wish.id)} 
-                      className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
-                        hasInterest ? 'bg-slate-100 text-slate-400' : 'bg-emerald-500 text-white'
-                      }`}
-                    >
-                      {hasInterest ? '✓興味あり' : '行きたい'}
-                    </button>
-                    
-                    {hasDateTime ? (
-                      <button onClick={() => startVoting(wish.id)} className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-500 text-white">
-                        参加確認を開始
+                  ) : isVoting && !hasDateTime ? (
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => toggleInterest(wish.id)} 
+                        className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
+                          hasInterest ? 'bg-slate-100 text-slate-400' : 'bg-emerald-500 text-white'
+                        }`}
+                      >
+                        {hasInterest ? '✓興味あり' : '行きたい'}
                       </button>
-                    ) : wish.status === 'voting' ? (
                       <Link href={`/liff/wishes/${wish.id}/schedule/vote?groupId=${groupId}`} className="px-4 py-2 text-sm font-medium rounded-lg bg-emerald-500 text-white">
                         日程調整に回答
                       </Link>
-                    ) : (
-                      <Link href={`/liff/wishes/${wish.id}/schedule?groupId=${groupId}`} className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-500 text-white">
-                        日程調整を開始
-                      </Link>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => toggleInterest(wish.id)} 
+                        className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
+                          hasInterest ? 'bg-slate-100 text-slate-400' : 'bg-emerald-500 text-white'
+                        }`}
+                      >
+                        {hasInterest ? '✓興味あり' : '行きたい'}
+                      </button>
+                      
+                      {hasDateTime ? (
+                        <button onClick={() => startVoting(wish.id)} className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-500 text-white">
+                          参加確認を開始
+                        </button>
+                      ) : (
+                        <Link href={`/liff/wishes/${wish.id}/schedule?groupId=${groupId}`} className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-500 text-white">
+                          日程調整を開始
+                        </Link>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}

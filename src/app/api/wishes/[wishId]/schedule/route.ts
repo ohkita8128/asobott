@@ -51,7 +51,7 @@ export async function POST(
   try {
     const { wishId } = await params;
     const body = await request.json();
-    const { dates } = body;
+    const { dates, voteDeadline } = body;
 
     if (!dates || !Array.isArray(dates) || dates.length === 0) {
       return NextResponse.json({ error: 'dates required' }, { status: 400 });
@@ -79,10 +79,13 @@ export async function POST(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // wishのstatusを更新
+    // wishのstatusと締め切りを更新
     await supabase
       .from('wishes')
-      .update({ status: 'voting' })
+      .update({ 
+        status: 'voting',
+        vote_deadline: voteDeadline || null
+      })
       .eq('id', wishId);
 
     return NextResponse.json(data, { status: 201 });

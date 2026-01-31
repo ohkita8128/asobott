@@ -18,6 +18,8 @@ export default function ScheduleContent() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [deadline, setDeadline] = useState('');
+  const [deadlineTime, setDeadlineTime] = useState('23:59');
 
   useEffect(() => {
     const fetchWish = async () => {
@@ -39,10 +41,11 @@ export default function ScheduleContent() {
     if (selectedDates.length === 0 || !profile) return;
     setIsSubmitting(true);
     try {
+      const voteDeadline = deadline ? `${deadline}T${deadlineTime}:00` : null;
       const res = await fetch(`/api/wishes/${wishId}/schedule`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dates: selectedDates.sort() })
+        body: JSON.stringify({ dates: selectedDates.sort(), voteDeadline })
       });
       if (res.ok) {
         router.push(`/liff/wishes/${wishId}/schedule/vote?groupId=${groupId}`);
@@ -75,6 +78,8 @@ export default function ScheduleContent() {
   const isPast = (date: Date) => { const today = new Date(); today.setHours(0, 0, 0, 0); return date < today; };
   const isToday = (date: Date) => date.toDateString() === new Date().toDateString();
   const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+  const today = new Date();
+  const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   if (!isReady || isLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="w-8 h-8 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" /></div>;
 
@@ -120,7 +125,7 @@ export default function ScheduleContent() {
               const dateStr = formatDateStr(date);
               const isSelected = selectedDates.includes(dateStr);
               const past = isPast(date);
-              const today = isToday(date);
+              const todayCheck = isToday(date);
               const dow = date.getDay();
               return (
                 <button
@@ -131,7 +136,7 @@ export default function ScheduleContent() {
                   className={`aspect-square rounded-lg text-sm font-medium transition ${
                     past ? 'text-slate-200 cursor-not-allowed' 
                     : isSelected ? 'bg-emerald-500 text-white' 
-                    : today ? 'bg-slate-100 text-slate-900' 
+                    : todayCheck ? 'bg-slate-100 text-slate-900' 
                     : dow === 0 ? 'text-red-500 hover:bg-red-50' 
                     : dow === 6 ? 'text-blue-500 hover:bg-blue-50' 
                     : 'text-slate-700 hover:bg-slate-50'
@@ -161,6 +166,35 @@ export default function ScheduleContent() {
             </div>
           </div>
         )}
+
+        {/* 締め切り設定 */}
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <label className="block text-sm font-medium text-slate-700 mb-3">回答締め切り（任意）</label>
+          <div className="flex gap-2">
+            <input
+              type="date"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              min={minDate}
+              className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm"
+            />
+            <input
+              type="time"
+              value={deadlineTime}
+              onChange={(e) => setDeadlineTime(e.target.value)}
+              className="w-24 px-3 py-2 border border-slate-200 rounded-lg text-sm"
+            />
+          </div>
+          {deadline && (
+            <button
+              type="button"
+              onClick={() => { setDeadline(''); setDeadlineTime('23:59'); }}
+              className="mt-2 text-xs text-slate-400 hover:text-slate-600"
+            >
+              締め切りを削除
+            </button>
+          )}
+        </div>
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4">

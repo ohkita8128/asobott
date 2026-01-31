@@ -41,7 +41,7 @@ export default function NewEventContent() {
 
   const toggleDate = (dateStr: string) => setSelectedDates(prev => prev.includes(dateStr) ? prev.filter(d => d !== dateStr) : [...prev, dateStr]);
   const getDaysInMonth = (date: Date) => { const year = date.getFullYear(), month = date.getMonth(); const firstDay = new Date(year, month, 1), lastDay = new Date(year, month + 1, 0); const days: (Date | null)[] = []; for (let i = 0; i < firstDay.getDay(); i++) days.push(null); for (let i = 1; i <= lastDay.getDate(); i++) days.push(new Date(year, month, i)); return days; };
-  const formatDateStr = (date: Date) => date.toISOString().split('T')[0];
+  const formatDateStr = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   const isPast = (date: Date) => { const today = new Date(); today.setHours(0, 0, 0, 0); return date < today; };
   const isToday = (date: Date) => date.toDateString() === new Date().toDateString();
   const weekdays = ['日', '月', '火', '水', '木', '金', '土'];

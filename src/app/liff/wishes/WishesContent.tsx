@@ -63,7 +63,7 @@ export default function WishesContent() {
               <div className="mb-3"><h3 className="font-semibold text-slate-900">{wish.title}</h3>{wish.description && <p className="text-sm text-slate-500 mt-1">{wish.description}</p>}<p className="text-xs text-slate-400 mt-2">{wish.is_anonymous ? '匿名' : wish.created_by_user?.display_name || '不明'}</p></div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center">{wish.interests.length > 0 && <><div className="flex -space-x-2 mr-2">{wish.interests.slice(0, 3).map((interest) => <div key={interest.id} className="w-6 h-6 rounded-full bg-slate-200 border-2 border-white overflow-hidden">{interest.users?.picture_url && <img src={interest.users.picture_url} alt="" className="w-full h-full object-cover" />}</div>)}</div><span className="text-xs text-slate-500">{wish.interests.length}人</span></>}</div>
-                <button onClick={() => toggleInterest(wish.id, hasInterest)} className={`px-4 py-1.5 text-sm font-medium rounded-lg transition ${hasInterest ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}`}>{hasInterest ? '興味あり' : '興味ある'}</button>
+                <button onClick={() => toggleInterest(wish.id, hasInterest)} className={`px-4 py-1.5 text-sm font-medium rounded-lg transition ${hasInterest ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}`}>{hasInterest ? '行きたい！' : '行きたい'}</button>
               </div>
             </div>
           ); })}</div>

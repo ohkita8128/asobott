@@ -4,10 +4,12 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { useGroup } from '@/hooks/use-group';
 import { useWishes } from '@/hooks/use-wishes';
+import { WishListSkeleton } from '../components/Skeleton';
+import ErrorRetry from '../components/ErrorRetry';
 
 export default function WishesContent() {
   const { groupId, profile, isLoading: isGroupLoading, myUserId } = useGroup();
-  const { wishes, isLoading: isWishesLoading, refreshWishes } = useWishes(groupId);
+  const { wishes, isLoading: isWishesLoading, error: wishesError, refresh, refreshWishes } = useWishes(groupId);
   
   const [localInterests, setLocalInterests] = useState<Record<string, boolean>>({});
   const [localVotes, setLocalVotes] = useState<Record<string, string>>({});
@@ -125,8 +127,25 @@ export default function WishesContent() {
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); processPendingActions(); };
   }, [processPendingActions]);
 
-  if (isGroupLoading || isWishesLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="w-8 h-8 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" /></div>;
+  // ローディング
+  if (isGroupLoading || isWishesLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 pb-16">
+        <header className="bg-white border-b border-slate-200 px-4 py-3">
+          <h1 className="text-lg font-semibold text-slate-900">行きたいリスト</h1>
+        </header>
+        <div className="p-4">
+          <WishListSkeleton count={4} />
+        </div>
+      </div>
+    );
+  }
+  
+  // グループなし
   if (!groupId) return <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4"><div className="bg-white rounded-xl border p-6 text-center"><p className="text-slate-500">グループが見つかりません</p><Link href="/liff" className="inline-block mt-4 px-4 py-2 bg-slate-100 text-sm rounded-lg">戻る</Link></div></div>;
+  
+  // エラー
+  if (wishesError) return <ErrorRetry message="データの読み込みに失敗しました" onRetry={refresh} />;
 
   return (
     <div className="min-h-screen bg-slate-50 pb-16">

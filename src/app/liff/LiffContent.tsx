@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useGroup } from '@/hooks/use-group';
 import { useWishes } from '@/hooks/use-wishes';
+import { PageSkeleton } from './components/Skeleton';
+import ErrorRetry from './components/ErrorRetry';
 
 export default function LiffContent() {
   const router = useRouter();
   const { groupId, groupName, setGroupId, setGroupName, allGroups, profile, isLoading } = useGroup();
-  const { wishes } = useWishes(groupId);
+  const { wishes, isLoading: isWishesLoading, error: wishesError, refresh } = useWishes(groupId);
   const [showGroupSheet, setShowGroupSheet] = useState(false);
 
   const switchGroup = (newGroupId: string, newGroupName: string | null) => {
@@ -87,8 +89,14 @@ export default function LiffContent() {
     };
   };
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="w-8 h-8 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" /></div>;
+  // ローディング中
+  if (isLoading) return <PageSkeleton />;
+  
+  // グループなし
   if (!groupId) return <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4"><div className="bg-white rounded-xl border p-6 text-center"><p className="text-slate-500 whitespace-pre-line">所属グループがありません。{'\n\n'}Botをグループに招待して、{'\n'}グループで何かメッセージを送ってください。</p></div></div>;
+
+  // エラー
+  if (wishesError) return <ErrorRetry message="データの読み込みに失敗しました" onRetry={refresh} />;
 
   const unanswered = getUnansweredVotes();
   const upcoming = getUpcomingEvents();
@@ -99,16 +107,19 @@ export default function LiffContent() {
       <header className="bg-white border-b border-slate-200 px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold text-slate-900">あそボット</h1>
-            <button 
-              onClick={() => setShowGroupSheet(true)}
-              className="flex items-center gap-1 px-2 py-1 text-sm text-slate-500 bg-slate-100 rounded-lg"
-            >
-              <span className="max-w-[120px] truncate">{groupName || 'グループ'}</span>
-              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
+            <img src="/icon.png" alt="あそボット" className="w-9 h-9 rounded-lg object-cover" />
+            <div>
+              <h1 className="text-base font-semibold text-slate-900">あそボット</h1>
+              <button 
+                onClick={() => setShowGroupSheet(true)}
+                className="flex items-center gap-1 text-xs text-slate-500"
+              >
+                <span className="max-w-[120px] truncate">{groupName || 'グループ'}</span>
+                <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
           </div>
           {profile?.pictureUrl && <img src={profile.pictureUrl} alt="" className="w-8 h-8 rounded-full" />}
         </div>

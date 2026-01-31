@@ -1,8 +1,21 @@
 import './globals.css';
+import type { Metadata } from 'next';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'あそボット',
-  description: '予定調整アプリ',
+  description: '「いつか行きたいね」を「この日に行こう！」へ。グループの予定調整をお手伝いする執事ボットです。',
+  openGraph: {
+    title: 'あそボット',
+    description: '「いつか行きたいね」を「この日に行こう！」へ',
+    images: ['/ogp.png'],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'あそボット',
+    description: '「いつか行きたいね」を「この日に行こう！」へ',
+    images: ['/ogp.png'],
+  },
 };
 
 export default function RootLayout({

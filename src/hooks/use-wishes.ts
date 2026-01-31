@@ -50,6 +50,7 @@ export function useWishes(groupId: string | null) {
     wishes: data || [],
     isLoading,
     error,
+    refresh: refreshWishes,
     refreshWishes,
   };
 }

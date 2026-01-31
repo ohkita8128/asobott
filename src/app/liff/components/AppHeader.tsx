@@ -31,9 +31,11 @@ export default function AppHeader({ groupId, groupName, userPicture, showBack, b
     <header className="sticky top-0 z-50 bg-white border-b border-slate-200 px-4 py-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
-            <span className="text-white text-sm font-bold">あ</span>
-          </div>
+          <img 
+            src="/icon.png" 
+            alt="あそボット" 
+            className="w-9 h-9 rounded-lg object-cover"
+          />
           <div>
             <h1 className="text-base font-semibold text-slate-900">あそボット</h1>
             {groupName && <p className="text-xs text-slate-500 -mt-0.5">{groupName}</p>}

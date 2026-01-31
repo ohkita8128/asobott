@@ -1,0 +1,93 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase/client';
+
+// 候補日一覧取得
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ wishId: string }> }
+) {
+  try {
+    const { wishId } = await params;
+
+    const { data, error } = await supabase
+      .from('schedule_candidates')
+      .select(`
+        id,
+        date,
+        schedule_votes(
+          id,
+          user_id,
+          availability,
+          users(display_name, picture_url)
+        )
+      `)
+      .eq('wish_id', wishId)
+      .order('date', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching candidates:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // フォーマット調整
+    const formatted = data?.map(c => ({
+      id: c.id,
+      date: c.date,
+      votes: c.schedule_votes || []
+    }));
+
+    return NextResponse.json(formatted);
+  } catch (error) {
+    console.error('Error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+// 候補日作成
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ wishId: string }> }
+) {
+  try {
+    const { wishId } = await params;
+    const body = await request.json();
+    const { dates } = body;
+
+    if (!dates || !Array.isArray(dates) || dates.length === 0) {
+      return NextResponse.json({ error: 'dates required' }, { status: 400 });
+    }
+
+    // 既存の候補日を削除
+    await supabase
+      .from('schedule_candidates')
+      .delete()
+      .eq('wish_id', wishId);
+
+    // 新しい候補日を追加
+    const insertData = dates.map((date: string) => ({
+      wish_id: wishId,
+      date
+    }));
+
+    const { data, error } = await supabase
+      .from('schedule_candidates')
+      .insert(insertData)
+      .select();
+
+    if (error) {
+      console.error('Error creating candidates:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // wishのstatusを更新
+    await supabase
+      .from('wishes')
+      .update({ status: 'voting' })
+      .eq('id', wishId);
+
+    return NextResponse.json(data, { status: 201 });
+  } catch (error) {
+    console.error('Error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}

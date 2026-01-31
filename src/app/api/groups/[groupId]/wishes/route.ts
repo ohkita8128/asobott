@@ -18,6 +18,12 @@ export async function GET(
           id,
           user_id,
           users(display_name, picture_url)
+        ),
+        wish_responses(
+          id,
+          user_id,
+          response,
+          users(display_name, picture_url)
         )
       `)
       .eq('group_id', groupId)

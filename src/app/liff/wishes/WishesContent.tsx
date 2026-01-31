@@ -17,14 +17,16 @@ type Wish = {
   title: string;
   description: string | null;
   is_anonymous: boolean;
+  status: 'open' | 'voting' | 'confirmed';
   start_date: string | null;
   start_time: string | null;
   end_date: string | null;
   end_time: string | null;
   is_all_day: boolean;
+  voting_started: boolean;
   created_by_user: { display_name: string; picture_url: string | null } | null;
   interests: { id: string; user_id: string; users: { display_name: string; picture_url: string | null } }[];
-  responses?: WishResponse[];
+  wish_responses: WishResponse[];
 };
 
 export default function WishesContent() {
@@ -62,18 +64,7 @@ export default function WishesContent() {
     try { 
       const res = await fetch(`/api/groups/${groupId}/wishes`); 
       const data = await res.json(); 
-      if (Array.isArray(data)) {
-        // 各wishのresponsesを取得
-        const withResponses = await Promise.all(data.map(async (wish: Wish) => {
-          if (wish.start_date) {
-            const resRes = await fetch(`/api/wishes/${wish.id}/response`);
-            const responses = await resRes.json();
-            return { ...wish, responses: Array.isArray(responses) ? responses : [] };
-          }
-          return { ...wish, responses: [] };
-        }));
-        setWishes(withResponses);
-      }
+      if (Array.isArray(data)) setWishes(data);
     } catch (err) { console.error(err); }
     finally { setIsLoading(false); }
   };
@@ -91,6 +82,19 @@ export default function WishesContent() {
       } else {
         await fetch(`/api/wishes/${wishId}/interest`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lineUserId: profile.userId }) });
       }
+      await fetchWishes();
+    } catch (err) { console.error(err); }
+    finally { setSavingId(null); }
+  };
+
+  const startVoting = async (wishId: string) => {
+    setSavingId(wishId);
+    try {
+      await fetch(`/api/wishes/${wishId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ votingStarted: true })
+      });
       await fetchWishes();
     } catch (err) { console.error(err); }
     finally { setSavingId(null); }
@@ -133,17 +137,17 @@ export default function WishesContent() {
   };
 
   const getMyResponse = (wish: Wish): 'ok' | 'maybe' | 'ng' | null => {
-    if (!profile || !wish.responses) return null;
-    const myRes = wish.responses.find(r => r.users?.display_name === profile.displayName);
+    if (!profile || !wish.wish_responses) return null;
+    const myRes = wish.wish_responses.find(r => r.users?.display_name === profile.displayName);
     return myRes?.response || null;
   };
 
   const getResponseCounts = (wish: Wish) => {
-    if (!wish.responses) return { ok: 0, maybe: 0, ng: 0 };
+    if (!wish.wish_responses) return { ok: 0, maybe: 0, ng: 0 };
     return {
-      ok: wish.responses.filter(r => r.response === 'ok').length,
-      maybe: wish.responses.filter(r => r.response === 'maybe').length,
-      ng: wish.responses.filter(r => r.response === 'ng').length,
+      ok: wish.wish_responses.filter(r => r.response === 'ok').length,
+      maybe: wish.wish_responses.filter(r => r.response === 'maybe').length,
+      ng: wish.wish_responses.filter(r => r.response === 'ng').length,
     };
   };
 
@@ -153,12 +157,7 @@ export default function WishesContent() {
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
       <header className="bg-white border-b border-slate-200 px-4 py-4">
-        <div className="flex items-center gap-4">
-          <Link href={`/liff?groupId=${groupId}`} className="text-slate-400">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-          </Link>
-          <h1 className="text-lg font-semibold text-slate-900">行きたいリスト</h1>
-        </div>
+        <h1 className="text-lg font-semibold text-slate-900">行きたいリスト</h1>
       </header>
 
       <main className="px-4 py-6">
@@ -175,6 +174,7 @@ export default function WishesContent() {
               const myResponse = getMyResponse(wish);
               const counts = getResponseCounts(wish);
               const isSaving = savingId === wish.id;
+              const isVoting = wish.voting_started;
               
               return (
                 <div key={wish.id} className="bg-white rounded-xl border border-slate-200 p-4">
@@ -184,10 +184,11 @@ export default function WishesContent() {
                       <p className="text-sm text-emerald-600 mt-1">📅 {formatDateTime(wish)}</p>
                     )}
                     {wish.description && <p className="text-sm text-slate-500 mt-1">{wish.description}</p>}
+                    <p className="text-xs text-slate-400 mt-1">{wish.interests.length}人が興味あり</p>
                   </div>
 
-                  {hasDateTime ? (
-                    // 日時あり: ◯△✕ボタン + 人数表示
+                  {isVoting ? (
+                    // 投票中: ◯△✕
                     <>
                       <div className="flex gap-2 mb-2">
                         {(['ok', 'maybe', 'ng'] as const).map((v) => (
@@ -212,20 +213,43 @@ export default function WishesContent() {
                       </div>
                     </>
                   ) : (
-                    // 日時なし: 興味ありボタン
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-400">{wish.interests.length}人が興味あり</span>
+                    // 投票開始前
+                    <div className="flex items-center gap-2">
                       <button 
                         onClick={() => toggleInterest(wish.id, hasInterest)} 
                         disabled={isSaving}
-                        className={`px-4 py-1.5 text-sm font-medium rounded-lg transition ${
+                        className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition ${
                           hasInterest 
                             ? 'bg-slate-100 text-slate-400' 
                             : 'bg-emerald-500 text-white hover:bg-emerald-600'
                         }`}
                       >
-                        {hasInterest ? '✓' : '行きたい'}
+                        {hasInterest ? '✓ 興味あり' : '行きたい'}
                       </button>
+                      
+                      {hasDateTime ? (
+                        <button
+                          onClick={() => startVoting(wish.id)}
+                          disabled={isSaving}
+                          className="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition"
+                        >
+                          参加確認を開始
+                        </button>
+                      ) : wish.status === 'voting' ? (
+                        <Link
+                          href={`/liff/wishes/${wish.id}/schedule/vote?groupId=${groupId}`}
+                          className="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition text-center"
+                        >
+                          日程調整に回答
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/liff/wishes/${wish.id}/schedule?groupId=${groupId}`}
+                          className="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition text-center"
+                        >
+                          日程調整を開始
+                        </Link>
+                      )}
                     </div>
                   )}
                 </div>

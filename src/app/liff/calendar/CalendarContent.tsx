@@ -7,23 +7,18 @@ import Link from 'next/link';
 
 type WishResponse = {
   id: string;
-  user_id: string;
   response: 'ok' | 'maybe' | 'ng';
-  users: { display_name: string; picture_url: string | null };
+  users: { display_name: string };
 };
 
 type Wish = {
   id: string;
   title: string;
-  description: string | null;
   start_date: string | null;
   start_time: string | null;
-  end_date: string | null;
-  end_time: string | null;
   is_all_day: boolean;
   voting_started: boolean;
-  created_by_user: { display_name: string; picture_url: string | null } | null;
-  interests: { id: string; user_id: string; users: { display_name: string; picture_url: string | null } }[];
+  interests: { id: string; users: { display_name: string } }[];
   wish_responses: WishResponse[];
 };
 
@@ -59,12 +54,8 @@ export default function CalendarContent() {
         const res = await fetch(`/api/groups/${groupId}/wishes`);
         const data = await res.json();
         if (Array.isArray(data)) {
-          // 日時設定されているもののみ、日付順にソート
           const withDate = data.filter((w: Wish) => w.start_date);
-          withDate.sort((a: Wish, b: Wish) => {
-            if (!a.start_date || !b.start_date) return 0;
-            return a.start_date.localeCompare(b.start_date);
-          });
+          withDate.sort((a: Wish, b: Wish) => (a.start_date || '').localeCompare(b.start_date || ''));
           setWishes(withDate);
         }
       } catch (err) { console.error(err); }
@@ -73,39 +64,13 @@ export default function CalendarContent() {
     fetchWishes();
   }, [groupId]);
 
-  const formatDateTime = (wish: Wish) => {
-    if (!wish.start_date) return '';
-    const [y, m, d] = wish.start_date.split('-').map(Number);
+  const formatDate = (dateStr: string) => {
+    const [y, m, d] = dateStr.split('-').map(Number);
     const date = new Date(y, m - 1, d);
-    const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
-    let str = `${m}/${d}(${weekdays[date.getDay()]})`;
-    
-    if (!wish.is_all_day && wish.start_time) {
-      str += ` ${wish.start_time.slice(0, 5)}`;
-      if (wish.end_time) str += `〜${wish.end_time.slice(0, 5)}`;
-    }
-    return str;
+    const wd = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
+    return { text: `${m}/${d}(${wd})`, isSun: date.getDay() === 0, isSat: date.getDay() === 6 };
   };
 
-  const isUpcoming = (wish: Wish) => {
-    if (!wish.start_date) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const [y, m, d] = wish.start_date.split('-').map(Number);
-    const startDate = new Date(y, m - 1, d);
-    return startDate >= today;
-  };
-
-  const getResponseCounts = (wish: Wish) => {
-    if (!wish.wish_responses) return { ok: 0, maybe: 0, ng: 0 };
-    return {
-      ok: wish.wish_responses.filter(r => r.response === 'ok').length,
-      maybe: wish.wish_responses.filter(r => r.response === 'maybe').length,
-      ng: wish.wish_responses.filter(r => r.response === 'ng').length,
-    };
-  };
-
-  // カレンダー用関数
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear(), month = date.getMonth();
     const firstDay = new Date(year, month, 1);
@@ -117,10 +82,26 @@ export default function CalendarContent() {
   };
 
   const formatDateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  
-  const getWishesForDate = (date: Date) => {
-    const dateKey = formatDateKey(date);
-    return wishes.filter(w => w.start_date === dateKey);
+  const getWishesForDate = (date: Date) => wishes.filter(w => w.start_date === formatDateKey(date));
+
+  // 表示月の予定をフィルタ
+  const getMonthWishes = () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    return wishes.filter(w => {
+      if (!w.start_date) return false;
+      const [y, m] = w.start_date.split('-').map(Number);
+      return y === year && m === month + 1;
+    });
+  };
+
+  const getResponseCounts = (wish: Wish) => {
+    if (!wish.wish_responses) return { ok: 0, maybe: 0, ng: 0 };
+    return {
+      ok: wish.wish_responses.filter(r => r.response === 'ok').length,
+      maybe: wish.wish_responses.filter(r => r.response === 'maybe').length,
+      ng: wish.wish_responses.filter(r => r.response === 'ng').length,
+    };
   };
 
   const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
@@ -128,92 +109,79 @@ export default function CalendarContent() {
   if (!isReady || isLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="w-8 h-8 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" /></div>;
 
   const days = getDaysInMonth(currentMonth);
-  const upcomingWishes = wishes.filter(isUpcoming);
+  const monthWishes = getMonthWishes();
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
-      <header className="bg-white border-b border-slate-200 px-4 py-4">
-        <h1 className="text-lg font-semibold text-slate-900">カレンダー</h1>
+    <div className="min-h-screen bg-slate-50 pb-16">
+      <header className="bg-white border-b border-slate-200 px-4 py-3">
+        <h1 className="text-base font-semibold text-slate-900">カレンダー</h1>
       </header>
 
-      <main className="px-4 py-4 space-y-4">
-        {/* カレンダー */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center justify-between mb-4">
-            <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))} className="p-2 hover:bg-slate-100 rounded-lg">
-              <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-            </button>
-            <span className="text-sm font-medium text-slate-700">{currentMonth.getFullYear()}年 {currentMonth.getMonth() + 1}月</span>
-            <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))} className="p-2 hover:bg-slate-100 rounded-lg">
-              <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </button>
+      {/* カレンダー */}
+      <div className="bg-white border-b border-slate-200 p-3">
+        <div className="flex items-center justify-between mb-3">
+          <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))} className="p-1.5 hover:bg-slate-100 rounded">
+            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+          </button>
+          <span className="text-sm font-medium text-slate-700">{currentMonth.getFullYear()}年 {currentMonth.getMonth() + 1}月</span>
+          <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))} className="p-1.5 hover:bg-slate-100 rounded">
+            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+          </button>
+        </div>
+        <div className="grid grid-cols-7 gap-0.5 mb-1">
+          {weekdays.map((day, i) => (
+            <div key={day} className={`text-center text-[10px] font-medium py-0.5 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-400'}`}>{day}</div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-0.5">
+          {days.map((date, index) => {
+            if (!date) return <div key={`empty-${index}`} className="aspect-square" />;
+            const dayWishes = getWishesForDate(date);
+            const isToday = date.toDateString() === new Date().toDateString();
+            const dow = date.getDay();
+            return (
+              <div key={formatDateKey(date)} className={`aspect-square rounded text-xs flex flex-col items-center justify-start pt-0.5 ${isToday ? 'bg-slate-100' : ''}`}>
+                <span className={`text-[11px] ${dow === 0 ? 'text-red-500' : dow === 6 ? 'text-blue-500' : 'text-slate-700'}`}>{date.getDate()}</span>
+                {dayWishes.length > 0 && <div className="flex gap-0.5 mt-0.5">{dayWishes.slice(0, 3).map((_, i) => <div key={i} className="w-1 h-1 bg-emerald-500 rounded-full" />)}</div>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 月の予定リスト */}
+      <div className="px-3 py-2">
+        <h2 className="text-xs font-semibold text-slate-500 mb-2">{currentMonth.getMonth() + 1}月の予定</h2>
+        {monthWishes.length === 0 ? (
+          <div className="bg-white rounded-lg border border-slate-200 p-4 text-center">
+            <p className="text-xs text-slate-400">予定はありません</p>
           </div>
-          <div className="grid grid-cols-7 gap-1 mb-2">
-            {weekdays.map((day, i) => (
-              <div key={day} className={`text-center text-xs font-medium py-1 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-400'}`}>{day}</div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 gap-1">
-            {days.map((date, index) => {
-              if (!date) return <div key={`empty-${index}`} className="aspect-square" />;
-              const dayWishes = getWishesForDate(date);
-              const isToday = date.toDateString() === new Date().toDateString();
-              const dow = date.getDay();
+        ) : (
+          <div className="bg-white rounded-lg border border-slate-200 divide-y divide-slate-100">
+            {monthWishes.map((wish) => {
+              const { text, isSun, isSat } = formatDate(wish.start_date!);
+              const counts = getResponseCounts(wish);
               return (
-                <div key={formatDateKey(date)} className={`aspect-square rounded-lg text-sm relative flex flex-col items-center justify-start pt-1 ${isToday ? 'bg-slate-100' : ''}`}>
-                  <span className={`${dow === 0 ? 'text-red-500' : dow === 6 ? 'text-blue-500' : 'text-slate-700'}`}>{date.getDate()}</span>
-                  {dayWishes.length > 0 && (
-                    <div className="flex gap-0.5 mt-0.5">
-                      {dayWishes.slice(0, 3).map((_, i) => (
-                        <div key={i} className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                      ))}
-                    </div>
+                <Link key={wish.id} href={`/liff/wishes?groupId=${groupId}`} className="flex items-center px-3 py-2 gap-2">
+                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${wish.voting_started ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                  <span className={`text-xs w-14 shrink-0 ${isSun ? 'text-red-500' : isSat ? 'text-blue-500' : 'text-slate-500'}`}>{text}</span>
+                  <span className="text-sm text-slate-900 flex-1 truncate">{wish.title}</span>
+                  {wish.voting_started ? (
+                    <span className="text-[10px] text-slate-400 shrink-0">
+                      <span className="text-emerald-500">◯{counts.ok}</span>
+                      <span className="text-amber-500 ml-0.5">△{counts.maybe}</span>
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-slate-400 shrink-0">{wish.interests.length}人</span>
                   )}
-                </div>
+                </Link>
               );
             })}
           </div>
-        </div>
+        )}
+      </div>
 
-        {/* 今後の予定リスト */}
-        <div>
-          <h2 className="text-sm font-semibold text-slate-500 mb-3">今後の予定</h2>
-          {upcomingWishes.length === 0 ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-6 text-center">
-              <p className="text-slate-400 mb-4">予定はまだありません</p>
-              <Link href={`/liff/wishes/new?groupId=${groupId}`} className="inline-block px-6 py-2.5 bg-slate-900 text-white text-sm font-medium rounded-lg">予定を追加</Link>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {upcomingWishes.map((wish) => {
-                const counts = getResponseCounts(wish);
-                return (
-                  <Link key={wish.id} href={`/liff/wishes?groupId=${groupId}`} className="block bg-white rounded-xl border border-slate-200 p-4">
-                    <div className="flex items-start gap-3">
-                      <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${wish.voting_started ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900">{wish.title}</p>
-                        <p className="text-sm text-emerald-600 mt-0.5">{formatDateTime(wish)}</p>
-                        {wish.voting_started ? (
-                          <div className="flex gap-3 mt-1 text-xs">
-                            <span className="text-emerald-500">◯{counts.ok}</span>
-                            <span className="text-amber-500">△{counts.maybe}</span>
-                            <span className="text-red-500">✕{counts.ng}</span>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-slate-400 mt-1">{wish.interests.length}人が興味あり</p>
-                        )}
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </main>
-
-      <Link href={`/liff/wishes/new?groupId=${groupId}`} className="fixed bottom-24 right-4 w-12 h-12 bg-slate-900 text-white rounded-full shadow-lg flex items-center justify-center">
+      <Link href={`/liff/wishes/new?groupId=${groupId}`} className="fixed bottom-20 right-4 w-12 h-12 bg-slate-900 text-white rounded-full shadow-lg flex items-center justify-center">
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
       </Link>
 

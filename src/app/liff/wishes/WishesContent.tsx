@@ -38,7 +38,6 @@ export default function WishesContent() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [myUserId, setMyUserId] = useState<string | null>(null);
   
-  // 楽観的更新用
   const [localInterests, setLocalInterests] = useState<Record<string, boolean>>({});
   const [localVotes, setLocalVotes] = useState<Record<string, string>>({});
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -72,7 +71,6 @@ export default function WishesContent() {
       const data = await res.json(); 
       if (Array.isArray(data)) {
         setWishes(data);
-        // 初期状態設定
         const interests: Record<string, boolean> = {};
         const votes: Record<string, string> = {};
         data.forEach((w: Wish) => {
@@ -89,7 +87,6 @@ export default function WishesContent() {
 
   useEffect(() => { fetchWishes(); }, [fetchWishes]);
 
-  // ユーザーID取得
   useEffect(() => {
     const fetchUserId = async () => {
       if (!profile?.userId) return;
@@ -105,25 +102,16 @@ export default function WishesContent() {
   const processPendingActions = useCallback(async () => {
     const actions = [...pendingActionsRef.current];
     pendingActionsRef.current = [];
-    
     for (const action of actions) {
       try {
         if (action.type === 'interest') {
           if (action.value === 'add') {
-            await fetch(`/api/wishes/${action.wishId}/interest`, { 
-              method: 'POST', 
-              headers: { 'Content-Type': 'application/json' }, 
-              body: JSON.stringify({ lineUserId: profile?.userId }) 
-            });
+            await fetch(`/api/wishes/${action.wishId}/interest`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lineUserId: profile?.userId }) });
           } else {
             await fetch(`/api/wishes/${action.wishId}/interest?lineUserId=${profile?.userId}`, { method: 'DELETE' });
           }
         } else if (action.type === 'vote') {
-          await fetch(`/api/wishes/${action.wishId}/response`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lineUserId: profile?.userId, response: action.value })
-          });
+          await fetch(`/api/wishes/${action.wishId}/response`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lineUserId: profile?.userId, response: action.value }) });
         }
       } catch (err) { console.error(err); }
     }
@@ -133,7 +121,6 @@ export default function WishesContent() {
     const current = localInterests[wishId];
     setLocalInterests(prev => ({ ...prev, [wishId]: !current }));
     pendingActionsRef.current.push({ type: 'interest', wishId, value: current ? 'remove' : 'add' });
-    
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(processPendingActions, 300);
   };
@@ -143,18 +130,13 @@ export default function WishesContent() {
     const newVote = current === vote ? '' : vote;
     setLocalVotes(prev => ({ ...prev, [wishId]: newVote }));
     pendingActionsRef.current.push({ type: 'vote', wishId, value: newVote });
-    
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(processPendingActions, 300);
   };
 
   const startVoting = async (wishId: string) => {
     try {
-      await fetch(`/api/wishes/${wishId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ votingStarted: true })
-      });
+      await fetch(`/api/wishes/${wishId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ votingStarted: true }) });
       await fetchWishes();
     } catch (err) { console.error(err); }
   };
@@ -184,9 +166,7 @@ export default function WishesContent() {
     };
   };
 
-  const canDelete = (wish: Wish) => {
-    return wish.created_by === myUserId && !wish.voting_started && wish.status === 'open';
-  };
+  const canDelete = (wish: Wish) => wish.created_by === myUserId && !wish.voting_started && wish.status === 'open';
 
   useEffect(() => {
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); processPendingActions(); };
@@ -198,18 +178,18 @@ export default function WishesContent() {
   return (
     <div className="min-h-screen bg-slate-50 pb-16">
       <header className="bg-white border-b border-slate-200 px-4 py-3">
-        <h1 className="text-base font-semibold text-slate-900">行きたいリスト</h1>
+        <h1 className="text-lg font-semibold text-slate-900">行きたいリスト</h1>
       </header>
 
       {wishes.length === 0 ? (
         <div className="p-4">
           <div className="bg-white rounded-xl border border-slate-200 p-6 text-center">
-            <p className="text-slate-400 text-sm mb-4">まだ候補がありません</p>
+            <p className="text-slate-400 mb-4">まだ候補がありません</p>
             <Link href={`/liff/wishes/new?groupId=${groupId}`} className="inline-block px-5 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg">最初の候補を追加</Link>
           </div>
         </div>
       ) : (
-        <div className="bg-white divide-y divide-slate-100">
+        <div className="bg-white divide-y divide-slate-200">
           {wishes.map((wish) => {
             const hasDateTime = !!wish.start_date;
             const hasInterest = localInterests[wish.id] ?? false;
@@ -219,53 +199,53 @@ export default function WishesContent() {
             const interestCount = wish.interests.length + (hasInterest && !wish.interests.some(i => i.users?.display_name === profile?.displayName) ? 1 : 0) - (!hasInterest && wish.interests.some(i => i.users?.display_name === profile?.displayName) ? 1 : 0);
             
             return (
-              <div key={wish.id} className="px-4 py-3">
+              <div key={wish.id} className="px-4 py-4">
                 {/* タイトル行 */}
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-medium text-sm text-slate-900 truncate">{wish.title}</span>
-                    <span className="text-xs text-slate-400 shrink-0">{interestCount}人</span>
-                    {hasDateTime && <span className="text-xs text-emerald-600 shrink-0">{formatDateTime(wish)}</span>}
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-base text-slate-900">{wish.title}</h3>
+                      <span className="text-sm text-slate-400">{interestCount}人が興味あり</span>
+                    </div>
+                    {hasDateTime && <p className="text-sm text-emerald-600 mt-1">📅 {formatDateTime(wish)}</p>}
+                    {wish.description && <p className="text-sm text-slate-500 mt-1">{wish.description}</p>}
                   </div>
                   {canDelete(wish) && (
-                    <button onClick={() => deleteWish(wish.id)} className="text-slate-300 hover:text-red-500 p-1">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    <button onClick={() => deleteWish(wish.id)} className="text-slate-300 hover:text-red-500 p-1 ml-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                   )}
                 </div>
-                
-                {/* 説明 */}
-                {wish.description && <p className="text-xs text-slate-500 mb-2 truncate">{wish.description}</p>}
 
                 {/* アクション */}
                 {isVoting ? (
-                  <div className="flex items-center gap-2">
-                    <div className="flex gap-1">
+                  <div className="flex items-center gap-3">
+                    <div className="flex gap-2">
                       {(['ok', 'maybe', 'ng'] as const).map((v) => (
                         <button
                           key={v}
                           onClick={() => handleVote(wish.id, v)}
-                          className={`px-3 py-1 text-xs font-medium rounded transition ${
+                          className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
                             myVote === v
                               ? (v === 'ok' ? 'bg-emerald-500 text-white' : v === 'maybe' ? 'bg-amber-500 text-white' : 'bg-red-500 text-white')
-                              : 'bg-slate-100 text-slate-500'
+                              : 'bg-slate-100 text-slate-600'
                           }`}
                         >
                           {v === 'ok' ? '◯' : v === 'maybe' ? '△' : '✕'}
                         </button>
                       ))}
                     </div>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-sm text-slate-400">
                       <span className="text-emerald-500">◯{counts.ok}</span>
-                      <span className="text-amber-500 ml-1">△{counts.maybe}</span>
-                      <span className="text-red-500 ml-1">✕{counts.ng}</span>
+                      <span className="text-amber-500 ml-2">△{counts.maybe}</span>
+                      <span className="text-red-500 ml-2">✕{counts.ng}</span>
                     </span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
                     <button 
                       onClick={() => toggleInterest(wish.id)} 
-                      className={`px-3 py-1 text-xs font-medium rounded transition ${
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
                         hasInterest ? 'bg-slate-100 text-slate-400' : 'bg-emerald-500 text-white'
                       }`}
                     >
@@ -273,25 +253,16 @@ export default function WishesContent() {
                     </button>
                     
                     {hasDateTime ? (
-                      <button
-                        onClick={() => startVoting(wish.id)}
-                        className="px-3 py-1 text-xs font-medium rounded bg-blue-500 text-white"
-                      >
-                        参加確認
+                      <button onClick={() => startVoting(wish.id)} className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-500 text-white">
+                        参加確認を開始
                       </button>
                     ) : wish.status === 'voting' ? (
-                      <Link
-                        href={`/liff/wishes/${wish.id}/schedule/vote?groupId=${groupId}`}
-                        className="px-3 py-1 text-xs font-medium rounded bg-emerald-500 text-white"
-                      >
+                      <Link href={`/liff/wishes/${wish.id}/schedule/vote?groupId=${groupId}`} className="px-4 py-2 text-sm font-medium rounded-lg bg-emerald-500 text-white">
                         日程調整に回答
                       </Link>
                     ) : (
-                      <Link
-                        href={`/liff/wishes/${wish.id}/schedule?groupId=${groupId}`}
-                        className="px-3 py-1 text-xs font-medium rounded bg-blue-500 text-white"
-                      >
-                        日程調整
+                      <Link href={`/liff/wishes/${wish.id}/schedule?groupId=${groupId}`} className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-500 text-white">
+                        日程調整を開始
                       </Link>
                     )}
                   </div>

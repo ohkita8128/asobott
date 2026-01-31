@@ -85,11 +85,14 @@ async function handleFollow(event: WebhookEvent & { type: 'follow' }) {
 ・人気の候補をお知らせ
 ・日程調整から参加確認まで
 
+■ 管理画面の開き方
+・下部メニューからワンタップ
+・グループで「メニュー」と送信
+
 「いつか行きたいね」を「この日に行こう！」へ。
 わたくしにお任せください。
 
-まずはグループへお招きを。
-下部メニューより管理画面もご利用いただけます。`,
+まずはグループへお招きを。`,
       }],
     });
   } catch (error) {
@@ -198,7 +201,15 @@ async function handleJoin(event: WebhookEvent & { type: 'join' }) {
               },
               {
                 type: 'text',
-                text: '登録いただくと、下部メニューからいつでも管理画面を開けます。投票や追加がワンタップで便利です。',
+                text: '登録いただくと、下部メニューからいつでも管理画面を開けます。',
+                size: 'xs',
+                color: '#666666',
+                margin: 'sm',
+                wrap: true,
+              },
+              {
+                type: 'text',
+                text: '💬 グループで「メニュー」と送っても開けます。',
                 size: 'xs',
                 color: '#666666',
                 margin: 'sm',

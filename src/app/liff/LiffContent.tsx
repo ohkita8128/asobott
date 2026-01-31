@@ -88,12 +88,13 @@ export default function LiffContent() {
     });
   };
 
-  // 直近の予定（日時ありのもの、投票中含む）
+  // 直近の予定（日時あり＆投票開始済みのもの）
   const getUpcomingEvents = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return wishes
       .filter(w => w.start_date)
+      .filter(w => w.voting_started || w.status === 'voting' || w.status === 'confirmed')
       .filter(w => {
         const [y, m, d] = w.start_date!.split('-').map(Number);
         return new Date(y, m - 1, d) >= today;

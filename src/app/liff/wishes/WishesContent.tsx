@@ -312,7 +312,7 @@ export default function WishesContent() {
                           hasInterest ? 'bg-slate-100 text-slate-400' : 'bg-emerald-500 text-white'
                         }`}
                       >
-                        {hasInterest ? '✓興味あり' : '行きたい'}
+                        {hasInterest ? '✓興味あり' : '興味あり'}
                       </button>
                       <Link href={`/liff/wishes/${wish.id}/schedule/vote?groupId=${groupId}`} className="px-4 py-2 text-sm font-medium rounded-lg bg-emerald-500 text-white">
                         日程調整に回答
@@ -326,7 +326,7 @@ export default function WishesContent() {
                           hasInterest ? 'bg-slate-100 text-slate-400' : 'bg-emerald-500 text-white'
                         }`}
                       >
-                        {hasInterest ? '✓興味あり' : '行きたい'}
+                        {hasInterest ? '✓興味あり' : '興味あり'}
                       </button>
                       
                       {hasDateTime ? (

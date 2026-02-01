@@ -125,8 +125,8 @@ async function handleJoin(event: WebhookEvent & { type: 'join' }) {
     }
 
     // DBのグループIDを使ってLIFF URLを生成
-    const liffUrl = groupData?.id
-      ? `${baseLiffUrl}?groupId=${groupData.id}`
+    const liffUrl = groupData?.id 
+      ? `${baseLiffUrl}?groupId=${groupData.id}` 
       : baseLiffUrl;
 
     await lineClient.replyMessage({
@@ -363,7 +363,7 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
     try {
       // ユーザー情報を取得・登録
       const profile = await lineClient.getGroupMemberProfile(groupId!, userId);
-
+      
       const { data: userData } = await supabase
         .from('users')
         .upsert({
@@ -407,7 +407,7 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
           })
           .select()
           .single();
-
+        
         groupData = upsertedGroup;
         if (groupName) {
           console.log('Group name updated:', groupName);

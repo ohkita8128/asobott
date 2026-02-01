@@ -30,9 +30,13 @@ export async function sendGroupNotification({ groupId, wishId, type, message }: 
 
     // 通知が無効な場合はスキップ
     if (settings) {
-      if (type.includes('schedule') && !settings.notify_schedule_start) return false;
-      if (type.includes('reminder') && !settings.notify_reminder) return false;
+      // 開始通知（日程調整 or 参加確認）
+      if ((type === 'schedule_start' || type === 'confirm_start') && !settings.notify_schedule_start) return false;
+      // リマインド
+      if ((type === 'schedule_reminder' || type === 'confirm_reminder') && !settings.notify_reminder) return false;
+      // 確定通知
       if (type === 'date_confirmed' && !settings.notify_confirmed) return false;
+      // おすすめ提案
       if (type === 'suggestion' && !settings.suggest_enabled) return false;
     }
 

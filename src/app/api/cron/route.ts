@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
     // 3. おすすめ提案
     const { data: groups } = await supabase
       .from('group_settings')
-      .select('group_id, suggest_enabled, suggest_interval_days')
+      .select('group_id, suggest_enabled, suggest_interval_days, suggest_min_interests')
       .eq('suggest_enabled', true);
 
     for (const group of groups || []) {
@@ -112,7 +112,9 @@ export async function GET(request: NextRequest) {
         .select('*', { count: 'exact', head: true })
         .eq('group_id', group.group_id);
 
-      const minInterests = Math.max(2, Math.ceil((memberCount || 0) * 0.3));
+      // 設定値があればそれを使う、なければメンバー数の30%（最低2人）
+      const defaultMin = Math.max(2, Math.ceil((memberCount || 0) * 0.3));
+      const minInterests = group.suggest_min_interests || defaultMin;
 
       // 人気の行きたいを取得
       const { data: wishes } = await supabase

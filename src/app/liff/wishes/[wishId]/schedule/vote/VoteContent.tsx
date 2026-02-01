@@ -166,6 +166,15 @@ export default function VoteContent() {
         })}
       </div>
 
+      {/* 作成者以外への説明 */}
+      {!isOwner && wish?.created_by_user && (
+        <div className="mx-4 mt-3 px-3 py-2 bg-slate-100 rounded-lg">
+          <p className="text-xs text-slate-500">
+            💡 日程の確定は作成者（{wish.created_by_user.display_name}さん）が行います
+          </p>
+        </div>
+      )}
+
       {candidates.some(c => c.votes?.length > 0) && (
         <div className="mt-4 mx-4 bg-white rounded-xl border border-slate-200 p-4">
           <h3 className="text-sm font-semibold text-slate-700 mb-3">回答状況</h3>

@@ -75,22 +75,11 @@ async function handleFollow(event: WebhookEvent & { type: 'follow' }) {
       replyToken: event.replyToken,
       messages: [{
         type: 'text',
-        text: `ようこそ、あそボットと申します 🎩
+        text: `あそボットと申します 🎩
 
-「行きたい」を気軽に言い合える場所を作り、皆様が集まる機会をもっと増やすお手伝いをいたします。
+グループの「いつか行きたいね」を「この日に行こう！」に変えるお手伝いをいたします。
 
-■ できること
-・行きたい場所をみんなで出し合う
-・人気の候補をお知らせ
-・日程調整から参加確認まで
-
-■ 管理画面の開き方
-・下部メニューからワンタップ
-・グループで「メニュー」と送信
-
-「いつか行きたいね」を「この日に行こう！」へ。わたくしにお任せください。
-
-まずはグループへお招きを。`,
+まずはグループへお招きください。`,
       }],
     });
   } catch (error) {
@@ -136,8 +125,8 @@ async function handleJoin(event: WebhookEvent & { type: 'join' }) {
     }
 
     // DBのグループIDを使ってLIFF URLを生成
-    const liffUrl = groupData?.id 
-      ? `${baseLiffUrl}?groupId=${groupData.id}` 
+    const liffUrl = groupData?.id
+      ? `${baseLiffUrl}?groupId=${groupData.id}`
       : baseLiffUrl;
 
     await lineClient.replyMessage({
@@ -159,14 +148,7 @@ async function handleJoin(event: WebhookEvent & { type: 'join' }) {
               },
               {
                 type: 'text',
-                text: 'あそボットと申します。',
-                size: 'sm',
-                color: '#666666',
-                margin: 'sm',
-              },
-              {
-                type: 'text',
-                text: '皆様が集まる機会、もっと増やしましょう。',
+                text: '皆様の「いつか行きたいね」を「この日に行こう！」に変えるお手伝いをいたします。',
                 size: 'sm',
                 color: '#666666',
                 margin: 'md',
@@ -185,7 +167,7 @@ async function handleJoin(event: WebhookEvent & { type: 'join' }) {
               },
               {
                 type: 'text',
-                text: '1. 行きたい場所を誰でも追加できます\n2. 興味ある人が「行きたい！」と反応\n3. 人気があれば日程調整 → 決定！',
+                text: '1. 行きたい場所を追加\n2.「行きたい！」で興味を表明\n3. 盛り上がったら日程調整',
                 size: 'xs',
                 color: '#666666',
                 margin: 'sm',
@@ -197,22 +179,14 @@ async function handleJoin(event: WebhookEvent & { type: 'join' }) {
               },
               {
                 type: 'text',
-                text: '📱 友達登録がおすすめ',
+                text: '📱 管理画面の開き方',
                 weight: 'bold',
                 size: 'sm',
                 margin: 'lg',
               },
               {
                 type: 'text',
-                text: '登録いただくと、下部メニューからいつでも管理画面を開けます。',
-                size: 'xs',
-                color: '#666666',
-                margin: 'sm',
-                wrap: true,
-              },
-              {
-                type: 'text',
-                text: '💬 グループで「メニュー」と送っても開けます。',
+                text: '・友達登録 → 下部メニューからいつでも\n・グループで「メニュー」と送信',
                 size: 'xs',
                 color: '#666666',
                 margin: 'sm',
@@ -389,7 +363,7 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
     try {
       // ユーザー情報を取得・登録
       const profile = await lineClient.getGroupMemberProfile(groupId!, userId);
-      
+
       const { data: userData } = await supabase
         .from('users')
         .upsert({
@@ -433,7 +407,7 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
           })
           .select()
           .single();
-        
+
         groupData = upsertedGroup;
         if (groupName) {
           console.log('Group name updated:', groupName);

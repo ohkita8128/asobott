@@ -15,11 +15,15 @@ interface SendNotificationParams {
   groupId: string;
   wishId?: string;
   type: NotificationType;
-  message: string;
+  message?: string;
+  flexMessage?: {
+    altText: string;
+    contents: object;
+  };
 }
 
 // グループにLINE通知を送信
-export async function sendGroupNotification({ groupId, wishId, type, message }: SendNotificationParams): Promise<boolean> {
+export async function sendGroupNotification({ groupId, wishId, type, message, flexMessage }: SendNotificationParams): Promise<boolean> {
   try {
     // グループ設定を確認
     const { data: settings } = await supabase
@@ -69,6 +73,10 @@ export async function sendGroupNotification({ groupId, wishId, type, message }: 
     }
 
     // LINE APIで送信
+    const messages = flexMessage 
+      ? [{ type: 'flex', altText: flexMessage.altText, contents: flexMessage.contents }]
+      : [{ type: 'text', text: message }];
+
     const response = await fetch(LINE_API_URL, {
       method: 'POST',
       headers: {
@@ -77,7 +85,7 @@ export async function sendGroupNotification({ groupId, wishId, type, message }: 
       },
       body: JSON.stringify({
         to: group.line_group_id,
-        messages: [{ type: 'text', text: message }]
+        messages
       })
     });
 
@@ -113,41 +121,76 @@ export async function sendGroupNotification({ groupId, wishId, type, message }: 
 
 // 日程調整開始通知
 export async function notifyScheduleStart(groupId: string, wishId: string, title: string, liffUrl: string) {
-  const message = `🎩 あそボット より
-
-📋「${title}」の日程調整が始まりました。
-
-ご都合をお聞かせください。
-
-▼ 回答はこちら
-${liffUrl}`;
-
   return sendGroupNotification({
     groupId,
     wishId,
     type: 'schedule_start',
-    message
+    flexMessage: {
+      altText: `「${title}」の日程調整が始まりました`,
+      contents: {
+        type: 'bubble',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: '🎩 あそボット', size: 'sm', color: '#888888' },
+            { type: 'text', text: `「${title}」`, weight: 'bold', size: 'lg', margin: 'md', wrap: true },
+            { type: 'text', text: '日程調整が始まりました', size: 'md', margin: 'sm' },
+            { type: 'text', text: 'ご都合をお聞かせください。', size: 'sm', color: '#666666', margin: 'lg' },
+          ],
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#22c55e',
+              action: { type: 'uri', label: '回答する', uri: liffUrl },
+            },
+          ],
+        },
+      },
+    },
   });
 }
 
 // 参加確認開始通知
 export async function notifyConfirmStart(groupId: string, wishId: string, title: string, dateStr: string, liffUrl: string) {
-  const message = `🎩 あそボット より
-
-📋「${title}」の参加確認が始まりました。
-
-📅 ${dateStr}
-
-ご都合をお聞かせください。
-
-▼ 回答はこちら
-${liffUrl}`;
-
   return sendGroupNotification({
     groupId,
     wishId,
     type: 'confirm_start',
-    message
+    flexMessage: {
+      altText: `「${title}」の参加確認が始まりました`,
+      contents: {
+        type: 'bubble',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: '🎩 あそボット', size: 'sm', color: '#888888' },
+            { type: 'text', text: `「${title}」`, weight: 'bold', size: 'lg', margin: 'md', wrap: true },
+            { type: 'text', text: '参加確認が始まりました', size: 'md', margin: 'sm' },
+            { type: 'text', text: `📅 ${dateStr}`, size: 'sm', color: '#22c55e', margin: 'md' },
+            { type: 'text', text: 'ご都合をお聞かせください。', size: 'sm', color: '#666666', margin: 'lg' },
+          ],
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#22c55e',
+              action: { type: 'uri', label: '回答する', uri: liffUrl },
+            },
+          ],
+        },
+      },
+    },
   });
 }
 
@@ -156,20 +199,38 @@ export async function notifyReminder(groupId: string, wishId: string, title: str
   const typeLabel = type === 'schedule' ? '日程調整' : '参加確認';
   const urgency = daysLeft === 1 ? '明日が締め切り' : `あと${daysLeft}日`;
   
-  const message = `🎩 あそボット より
-
-⏰「${title}」の${typeLabel}、${urgency}でございます。
-
-まだの方はお早めにご回答を。
-
-▼ 回答はこちら
-${liffUrl}`;
-
   return sendGroupNotification({
     groupId,
     wishId,
     type: type === 'schedule' ? 'schedule_reminder' : 'confirm_reminder',
-    message
+    flexMessage: {
+      altText: `「${title}」の${typeLabel}、${urgency}です`,
+      contents: {
+        type: 'bubble',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: '🎩 あそボット', size: 'sm', color: '#888888' },
+            { type: 'text', text: `⏰ ${urgency}`, weight: 'bold', size: 'lg', margin: 'md', color: '#f97316' },
+            { type: 'text', text: `「${title}」の${typeLabel}`, size: 'md', margin: 'sm', wrap: true },
+            { type: 'text', text: 'まだの方はお早めにご回答を。', size: 'sm', color: '#666666', margin: 'lg' },
+          ],
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#22c55e',
+              action: { type: 'uri', label: '回答する', uri: liffUrl },
+            },
+          ],
+        },
+      },
+    },
   });
 }
 

@@ -18,10 +18,13 @@ export async function GET(
       .single();
 
     if (error && error.code === 'PGRST116') {
-      // レコードがない場合は作成
+      // レコードがない場合はデフォルト値で作成
       const { data: newData, error: insertError } = await supabase
         .from('group_settings')
-        .insert({ group_id: groupId })
+        .insert({ 
+          group_id: groupId,
+          suggest_interval_days: 14  // デフォルト2週間
+        })
         .select()
         .single();
       

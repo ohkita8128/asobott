@@ -92,6 +92,14 @@ export async function POST(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // 作成者の「行きたい！」を自動で追加
+    await supabase
+      .from('interests')
+      .insert({
+        wish_id: data.id,
+        user_id: userData.id,
+      });
+
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
     console.error('Error:', error);

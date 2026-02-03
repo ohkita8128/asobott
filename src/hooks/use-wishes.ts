@@ -23,6 +23,7 @@ type Wish = {
   voting_started: boolean;
   vote_deadline: string | null;
   confirmed_date: string | null;
+  created_at: string;
   created_by: string;
   created_by_user: { display_name: string; picture_url: string | null } | null;
   interests: { id: string; user_id: string; users: { display_name: string; picture_url: string | null } }[];

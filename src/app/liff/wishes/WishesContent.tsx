@@ -14,6 +14,7 @@ export default function WishesContent() {
   
   const [localInterests, setLocalInterests] = useState<Record<string, boolean>>({});
   const [localVotes, setLocalVotes] = useState<Record<string, string>>({});
+  const [sortBy, setSortBy] = useState<'popular' | 'newest'>('popular');
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pendingActionsRef = useRef<{type: string; wishId: string; value?: string}[]>([]);
 
@@ -150,8 +151,34 @@ export default function WishesContent() {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-16">
-      <header className="bg-white border-b border-slate-200 px-4 py-3">
-        <h1 className="text-lg font-semibold text-slate-900">行きたいリスト</h1>
+      <header className="bg-white border-b border-slate-200">
+        <div className="px-4 py-3">
+          <h1 className="text-lg font-semibold text-slate-900">行きたいリスト</h1>
+        </div>
+        {wishes.length > 0 && (
+          <div className="flex px-4 pb-2 gap-2">
+            <button
+              onClick={() => setSortBy('popular')}
+              className={`px-3 py-1.5 text-sm rounded-full transition ${
+                sortBy === 'popular' 
+                  ? 'bg-slate-900 text-white' 
+                  : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              🔥 人気順
+            </button>
+            <button
+              onClick={() => setSortBy('newest')}
+              className={`px-3 py-1.5 text-sm rounded-full transition ${
+                sortBy === 'newest' 
+                  ? 'bg-slate-900 text-white' 
+                  : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              🕐 新しい順
+            </button>
+          </div>
+        )}
       </header>
 
       {wishes.length === 0 ? (
@@ -163,7 +190,19 @@ export default function WishesContent() {
         </div>
       ) : (
         <div className="bg-white divide-y divide-slate-200">
-          {wishes.map((wish) => {
+          {[...wishes]
+            .sort((a, b) => {
+              if (sortBy === 'popular') {
+                // 人気順：興味数多い順、同数なら新しい順
+                const diff = b.interests.length - a.interests.length;
+                if (diff !== 0) return diff;
+                return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+              } else {
+                // 新しい順
+                return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+              }
+            })
+            .map((wish) => {
             const hasDateTime = !!wish.start_date;
             const hasInterest = localInterests[wish.id] ?? false;
             const counts = getResponseCounts(wish);

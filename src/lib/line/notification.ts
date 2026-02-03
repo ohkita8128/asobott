@@ -18,12 +18,12 @@ const characters = {
   butler: {
     name: 'あそボット',
     icon: '🎩',
-    // iconUrl: 'https://your-domain.com/butler-icon.png', // 後で設定
+    iconUrl: undefined, // デフォルトのLINEアイコンを使用
   },
   penguin: {
     name: 'あそボット',
     icon: '🐧',
-    // iconUrl: 'https://your-domain.com/penguin-icon.png', // 後で設定
+    iconUrl: 'https://asobott.vercel.app/icons/penguin-icon.png',
   },
 };
 
@@ -170,6 +170,10 @@ interface SendNotificationParams {
     altText: string;
     contents: object;
   };
+  sender?: {
+    name: string;
+    iconUrl: string;
+  };
 }
 
 // グループのキャラクター設定を取得
@@ -183,8 +187,17 @@ async function getCharacterType(groupId: string): Promise<CharacterType> {
   return (settings?.character_type as CharacterType) || 'butler';
 }
 
+// キャラクターに応じたsenderを取得
+function getSender(charType: CharacterType): { name: string; iconUrl: string } | undefined {
+  const char = characters[charType];
+  if (char.iconUrl) {
+    return { name: char.name, iconUrl: char.iconUrl };
+  }
+  return undefined; // デフォルトアイコンを使用
+}
+
 // グループにLINE通知を送信
-export async function sendGroupNotification({ groupId, wishId, type, message, flexMessage }: SendNotificationParams): Promise<boolean> {
+export async function sendGroupNotification({ groupId, wishId, type, message, flexMessage, sender }: SendNotificationParams): Promise<boolean> {
   try {
     // グループ設定を確認
     const { data: settings } = await supabase
@@ -231,8 +244,8 @@ export async function sendGroupNotification({ groupId, wishId, type, message, fl
 
     // LINE APIで送信
     const messagePayload = flexMessage 
-      ? [{ type: 'flex', altText: flexMessage.altText, contents: flexMessage.contents }]
-      : [{ type: 'text', text: message }];
+      ? [{ type: 'flex', altText: flexMessage.altText, contents: flexMessage.contents, ...(sender && { sender }) }]
+      : [{ type: 'text', text: message, ...(sender && { sender }) }];
 
     const response = await fetch(LINE_API_URL, {
       method: 'POST',
@@ -280,11 +293,13 @@ export async function sendGroupNotification({ groupId, wishId, type, message, fl
 export async function notifyScheduleStart(groupId: string, wishId: string, title: string, liffUrl: string) {
   const charType = await getCharacterType(groupId);
   const msg = messages.scheduleStart[charType];
+  const sender = getSender(charType);
   
   return sendGroupNotification({
     groupId,
     wishId,
     type: 'schedule_start',
+    sender,
     flexMessage: {
       altText: `「${title}」の日程調整が始まりました`,
       contents: {
@@ -320,11 +335,13 @@ export async function notifyScheduleStart(groupId: string, wishId: string, title
 export async function notifyConfirmStart(groupId: string, wishId: string, title: string, dateStr: string, liffUrl: string) {
   const charType = await getCharacterType(groupId);
   const msg = messages.confirmStart[charType];
+  const sender = getSender(charType);
   
   return sendGroupNotification({
     groupId,
     wishId,
     type: 'confirm_start',
+    sender,
     flexMessage: {
       altText: `「${title}」の参加確認が始まりました`,
       contents: {
@@ -366,11 +383,13 @@ export async function notifyReminder(groupId: string, wishId: string, title: str
     : (charType === 'butler' ? `あと${daysLeft}日` : `あと${daysLeft}日だよ〜`);
   const msg = messages.reminder[charType];
   const header = charType === 'butler' ? '🎩 あそボット' : '🐧 あそボット';
+  const sender = getSender(charType);
   
   return sendGroupNotification({
     groupId,
     wishId,
     type: type === 'schedule' ? 'schedule_reminder' : 'confirm_reminder',
+    sender,
     flexMessage: {
       altText: `「${title}」の${typeLabel}、${urgency}`,
       contents: {
@@ -406,12 +425,14 @@ export async function notifyReminder(groupId: string, wishId: string, title: str
 export async function notifyDateConfirmed(groupId: string, wishId: string, title: string, dateStr: string) {
   const charType = await getCharacterType(groupId);
   const message = messages.dateConfirmed[charType](title, dateStr);
+  const sender = getSender(charType);
 
   return sendGroupNotification({
     groupId,
     wishId,
     type: 'date_confirmed',
-    message
+    message,
+    sender
   });
 }
 
@@ -424,11 +445,13 @@ export async function notifySuggestion(groupId: string, suggestions: { title: st
   const patterns = messages.suggestionWithItems[charType];
   const pattern = patterns[Math.floor(Math.random() * patterns.length)];
   const message = pattern(list, total);
+  const sender = getSender(charType);
 
   return sendGroupNotification({
     groupId,
     type: 'suggestion',
-    message
+    message,
+    sender
   });
 }
 
@@ -437,10 +460,12 @@ export async function notifySuggestionEmpty(groupId: string, liffUrl: string) {
   const charType = await getCharacterType(groupId);
   const patterns = messages.suggestionEmpty[charType];
   const message = patterns[Math.floor(Math.random() * patterns.length)];
+  const sender = getSender(charType);
 
   return sendGroupNotification({
     groupId,
     type: 'suggestion',
-    message
+    message,
+    sender
   });
 }

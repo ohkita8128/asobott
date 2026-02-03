@@ -3,6 +3,96 @@ import { WebhookEvent } from '@line/bot-sdk';
 import { lineClient } from '@/lib/line/client';
 import { supabase } from '@/lib/supabase/client';
 
+type CharacterType = 'butler' | 'penguin';
+
+// キャラクター設定
+const characters = {
+  butler: {
+    name: 'あそボット',
+    iconUrl: undefined,
+  },
+  penguin: {
+    name: 'あそボット',
+    iconUrl: 'https://asobott.vercel.app/icons/penguin-icon.png',
+  },
+};
+
+// メッセージテンプレート
+const messageTemplates = {
+  follow: {
+    butler: `あそボットと申します 🎩
+
+グループの「いつか行きたいね」を「この日に行こう！」に変えるお手伝いをいたします。
+
+まずはグループへお招きください。`,
+    penguin: `あそボットだよ 🐧
+
+グループの「いつか行きたいね」を「この日に行こう！」にするよ！
+
+グループに招待してね！`,
+  },
+  join: {
+    butler: {
+      title: 'お招きありがとうございます 🎩',
+      subtitle: 'あそボットと申します。',
+      description: '皆様が集まる機会、もっと増やしましょう。',
+    },
+    penguin: {
+      title: 'グループに呼んでくれてありがとう！🐧',
+      subtitle: 'あそボットだよ。',
+      description: 'みんなで遊ぶ予定、もっと増やそう！',
+    },
+  },
+  menu: {
+    butler: {
+      title: '🎩 あそボット',
+      subtitle: 'ご用命はこちらから。',
+    },
+    penguin: {
+      title: '🐧 あそボット',
+      subtitle: 'なにかあったらここからね！',
+    },
+  },
+  howto: {
+    butler: {
+      title: '🎩 あそボット',
+      subtitle: '使い方をご案内いたします。',
+    },
+    penguin: {
+      title: '🐧 あそボット',
+      subtitle: '使い方を説明するね！',
+    },
+  },
+};
+
+// グループのキャラクター設定を取得
+async function getCharacterType(lineGroupId: string): Promise<CharacterType> {
+  const { data: group } = await supabase
+    .from('groups')
+    .select('id')
+    .eq('line_group_id', lineGroupId)
+    .single();
+  
+  if (!group) return 'butler';
+
+  const { data: settings } = await supabase
+    .from('group_settings')
+    .select('character_type')
+    .eq('group_id', group.id)
+    .single();
+  
+  return (settings?.character_type as CharacterType) || 'butler';
+}
+
+// senderを取得
+function getSender(charType: CharacterType) {
+  const char = characters[charType];
+  if (char.iconUrl) {
+    return { name: char.name, iconUrl: char.iconUrl };
+  }
+  return undefined;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -46,7 +136,7 @@ async function handleEvent(event: WebhookEvent) {
   }
 }
 
-// 友達追加時
+// 友達追加時（グループ外なのでデフォルトで返答）
 async function handleFollow(event: WebhookEvent & { type: 'follow' }) {
   const userId = event.source.userId;
   if (!userId) return;
@@ -71,15 +161,17 @@ async function handleFollow(event: WebhookEvent & { type: 'follow' }) {
       console.log('User saved:', profile.displayName);
     }
 
+    // 友達追加はグループ外なので、デフォルトのペンギンで返答
+    const charType: CharacterType = 'penguin';
+    const sender = getSender(charType);
+    const msg = messageTemplates.follow[charType];
+
     await lineClient.replyMessage({
       replyToken: event.replyToken,
       messages: [{
         type: 'text',
-        text: `あそボットと申します 🎩
-
-グループの「いつか行きたいね」を「この日に行こう！」に変えるお手伝いをいたします。
-
-まずはグループへお招きください。`,
+        text: msg,
+        ...(sender && { sender }),
       }],
     });
   } catch (error) {
@@ -129,11 +221,17 @@ async function handleJoin(event: WebhookEvent & { type: 'join' }) {
       ? `${baseLiffUrl}?groupId=${groupData.id}` 
       : baseLiffUrl;
 
+    // キャラクター取得（新規グループはまだ設定がないのでデフォルト）
+    const charType = await getCharacterType(lineGroupId!);
+    const sender = getSender(charType);
+    const msg = messageTemplates.join[charType];
+
     await lineClient.replyMessage({
       replyToken: event.replyToken,
       messages: [{
         type: 'flex',
         altText: 'あそボットが参加しました',
+        ...(sender && { sender }),
         contents: {
           type: 'bubble',
           body: {
@@ -142,20 +240,20 @@ async function handleJoin(event: WebhookEvent & { type: 'join' }) {
             contents: [
               {
                 type: 'text',
-                text: 'お招きありがとうございます 🎩',
+                text: msg.title,
                 weight: 'bold',
                 size: 'md',
               },
               {
                 type: 'text',
-                text: 'あそボットと申します。',
+                text: msg.subtitle,
                 size: 'sm',
                 color: '#666666',
                 margin: 'sm',
               },
               {
                 type: 'text',
-                text: '皆様が集まる機会、もっと増やしましょう。',
+                text: msg.description,
                 size: 'sm',
                 color: '#666666',
                 margin: 'md',
@@ -193,7 +291,7 @@ async function handleJoin(event: WebhookEvent & { type: 'join' }) {
               },
               {
                 type: 'text',
-                text: '登録いただくと、下部メニューからいつでも管理画面を開けます。',
+                text: '登録すると、いつでもメニューから管理画面を開けるよ。',
                 size: 'xs',
                 color: '#666666',
                 margin: 'sm',
@@ -201,7 +299,7 @@ async function handleJoin(event: WebhookEvent & { type: 'join' }) {
               },
               {
                 type: 'text',
-                text: '💬 グループで「メニュー」と送っても開けます。',
+                text: '💬 「メニュー」と送っても開けます',
                 size: 'xs',
                 color: '#666666',
                 margin: 'sm',
@@ -371,13 +469,14 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
   const liffUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}`;
 
   // グループからのメッセージの場合、ユーザーを group_members に自動登録
+  let lineGroupId: string | undefined;
   if (event.source.type === 'group' && event.source.userId) {
-    const groupId = event.source.groupId;
+    lineGroupId = event.source.groupId;
     const userId = event.source.userId;
 
     try {
       // ユーザー情報を取得・登録
-      const profile = await lineClient.getGroupMemberProfile(groupId!, userId);
+      const profile = await lineClient.getGroupMemberProfile(lineGroupId!, userId);
       
       const { data: userData } = await supabase
         .from('users')
@@ -396,13 +495,13 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
       let { data: groupData } = await supabase
         .from('groups')
         .select('id, name')
-        .eq('line_group_id', groupId)
+        .eq('line_group_id', lineGroupId)
         .single();
 
       // グループ名を取得して更新（毎回最新に）
       let groupName = null;
       try {
-        const groupSummary = await lineClient.getGroupSummary(groupId!);
+        const groupSummary = await lineClient.getGroupSummary(lineGroupId!);
         groupName = groupSummary.groupName;
       } catch (e) {
         console.log('Could not get group name:', e);
@@ -413,7 +512,7 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
         const { data: upsertedGroup } = await supabase
           .from('groups')
           .upsert({
-            line_group_id: groupId,
+            line_group_id: lineGroupId,
             name: groupName,
             last_activity_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -432,7 +531,7 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
         await supabase
           .from('groups')
           .update({ last_activity_at: new Date().toISOString() })
-          .eq('line_group_id', groupId);
+          .eq('line_group_id', lineGroupId);
       }
 
       // group_members に登録
@@ -452,12 +551,19 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
     }
   }
 
+  // キャラクター取得
+  const charType = lineGroupId ? await getCharacterType(lineGroupId) : 'penguin';
+  const sender = getSender(charType);
+
   if (text === 'メニュー' || text === 'めにゅー' || text === 'menu') {
+    const msg = messageTemplates.menu[charType];
+    
     await lineClient.replyMessage({
       replyToken: event.replyToken,
       messages: [{
         type: 'flex',
         altText: 'メニュー',
+        ...(sender && { sender }),
         contents: {
           type: 'bubble',
           body: {
@@ -466,13 +572,13 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
             contents: [
               {
                 type: 'text',
-                text: '🎩 あそボット',
+                text: msg.title,
                 weight: 'bold',
                 size: 'lg',
               },
               {
                 type: 'text',
-                text: 'ご用命はこちらから。',
+                text: msg.subtitle,
                 size: 'sm',
                 color: '#666666',
                 margin: 'md',
@@ -504,11 +610,14 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
   // 使い方コマンド
   if (text === '使い方' || text === 'つかいかた' || text === 'help') {
     const howtoUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}/howto`;
+    const msg = messageTemplates.howto[charType];
+    
     await lineClient.replyMessage({
       replyToken: event.replyToken,
       messages: [{
         type: 'flex',
         altText: '使い方',
+        ...(sender && { sender }),
         contents: {
           type: 'bubble',
           body: {
@@ -517,13 +626,13 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
             contents: [
               {
                 type: 'text',
-                text: '🎩 あそボット',
+                text: msg.title,
                 weight: 'bold',
                 size: 'lg',
               },
               {
                 type: 'text',
-                text: '使い方をご案内いたします。',
+                text: msg.subtitle,
                 size: 'sm',
                 color: '#666666',
                 margin: 'md',

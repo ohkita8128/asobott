@@ -250,7 +250,7 @@ export default function SettingsContent() {
                 }`}
               >
                 <div className="text-3xl mb-2">🎩</div>
-                <p className="text-sm font-medium text-slate-700">執事</p>
+                <p className="text-sm font-medium text-slate-700">あそじぃ</p>
                 <p className="text-xs text-slate-400 mt-1">丁寧な敬語</p>
               </button>
 
@@ -264,7 +264,7 @@ export default function SettingsContent() {
                 }`}
               >
                 <div className="text-3xl mb-2">🐧</div>
-                <p className="text-sm font-medium text-slate-700">ペンギン</p>
+                <p className="text-sm font-medium text-slate-700">あそぺん</p>
                 <p className="text-xs text-slate-400 mt-1">ゆるい口調</p>
               </button>
             </div>

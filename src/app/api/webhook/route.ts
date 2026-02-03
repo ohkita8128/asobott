@@ -8,11 +8,11 @@ type CharacterType = 'butler' | 'penguin';
 // キャラクター設定
 const characters = {
   butler: {
-    name: 'あそボット',
-    iconUrl: undefined,
+    name: 'あそじぃ',
+    iconUrl: 'https://asobott.vercel.app/icons/butler-icon.png',
   },
   penguin: {
-    name: 'あそボット',
+    name: 'あそぺん',
     iconUrl: 'https://asobott.vercel.app/icons/penguin-icon.png',
   },
 };
@@ -20,12 +20,12 @@ const characters = {
 // メッセージテンプレート
 const messageTemplates = {
   follow: {
-    butler: `あそボットと申します 🎩
+    butler: `あそじぃと申します 🎩
 
 グループの「いつか行きたいね」を「この日に行こう！」に変えるお手伝いをいたします。
 
 まずはグループへお招きください。`,
-    penguin: `あそボットだよ 🐧
+    penguin: `あそぺんだよ 🐧
 
 グループの「いつか行きたいね」を「この日に行こう！」にするよ！
 
@@ -34,32 +34,32 @@ const messageTemplates = {
   join: {
     butler: {
       title: 'お招きありがとうございます 🎩',
-      subtitle: 'あそボットと申します。',
+      subtitle: 'あそじぃと申します。',
       description: '皆様が集まる機会、もっと増やしましょう。',
     },
     penguin: {
       title: 'グループに呼んでくれてありがとう！🐧',
-      subtitle: 'あそボットだよ。',
+      subtitle: 'あそぺんだよ。',
       description: 'みんなで遊ぶ予定、もっと増やそう！',
     },
   },
   menu: {
     butler: {
-      title: '🎩 あそボット',
+      title: '🎩 あそじぃ',
       subtitle: 'ご用命はこちらから。',
     },
     penguin: {
-      title: '🐧 あそボット',
+      title: '🐧 あそぺん',
       subtitle: 'なにかあったらここからね！',
     },
   },
   howto: {
     butler: {
-      title: '🎩 あそボット',
+      title: '🎩 あそじぃ',
       subtitle: '使い方をご案内いたします。',
     },
     penguin: {
-      title: '🐧 あそボット',
+      title: '🐧 あそぺん',
       subtitle: '使い方を説明するね！',
     },
   },
@@ -161,8 +161,8 @@ async function handleFollow(event: WebhookEvent & { type: 'follow' }) {
       console.log('User saved:', profile.displayName);
     }
 
-    // 友達追加はグループ外なので、デフォルトのペンギンで返答
-    const charType: CharacterType = 'penguin';
+    // 友達追加はグループ外なので、デフォルトの執事で返答
+    const charType: CharacterType = 'butler';
     const sender = getSender(charType);
     const msg = messageTemplates.follow[charType];
 
@@ -552,7 +552,7 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
   }
 
   // キャラクター取得
-  const charType = lineGroupId ? await getCharacterType(lineGroupId) : 'penguin';
+  const charType = lineGroupId ? await getCharacterType(lineGroupId) : 'butler';
   const sender = getSender(charType);
 
   if (text === 'メニュー' || text === 'めにゅー' || text === 'menu') {

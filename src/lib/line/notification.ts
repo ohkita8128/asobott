@@ -16,12 +16,12 @@ type CharacterType = 'butler' | 'penguin';
 // キャラクター設定
 const characters = {
   butler: {
-    name: 'あそボット',
+    name: 'あそじぃ',
     icon: '🎩',
-    iconUrl: undefined, // デフォルトのLINEアイコンを使用
+    iconUrl: 'https://asobott.vercel.app/icons/butler-icon.png',
   },
   penguin: {
-    name: 'あそボット',
+    name: 'あそぺん',
     icon: '🐧',
     iconUrl: 'https://asobott.vercel.app/icons/penguin-icon.png',
   },
@@ -31,24 +31,24 @@ const characters = {
 const messages = {
   scheduleStart: {
     butler: {
-      header: '🎩 あそボット',
+      header: '🎩 あそじぃ',
       body: '日程調整が始まりました',
       footer: 'ご都合をお聞かせください。',
     },
     penguin: {
-      header: '🐧 あそボット',
+      header: '🐧 あそぺん',
       body: '日程調整はじまったよ！',
       footer: 'いつ空いてる？教えて！',
     },
   },
   confirmStart: {
     butler: {
-      header: '🎩 あそボット',
+      header: '🎩 あそじぃ',
       body: '参加確認が始まりました',
       footer: 'ご都合をお聞かせください。',
     },
     penguin: {
-      header: '🐧 あそボット',
+      header: '🐧 あそぺん',
       body: '参加確認だよ！',
       footer: '参加できるか教えて！',
     },
@@ -62,14 +62,14 @@ const messages = {
     },
   },
   dateConfirmed: {
-    butler: (title: string, dateStr: string) => `🎩 あそボット より
+    butler: (title: string, dateStr: string) => `🎩 あそじぃ より
 
 📅「${title}」の日程が決まりました。
 
 ${dateStr}
 
 皆様のご参加、お待ちしております。`,
-    penguin: (title: string, dateStr: string) => `🐧 あそボット
+    penguin: (title: string, dateStr: string) => `🐧 あそぺん
 
 「${title}」の日程決まったよ！🎉
 
@@ -381,7 +381,7 @@ export async function notifyReminder(groupId: string, wishId: string, title: str
     ? (charType === 'butler' ? '明日が締め切り' : '明日締め切りだよ！')
     : (charType === 'butler' ? `あと${daysLeft}日` : `あと${daysLeft}日だよ〜`);
   const msg = messages.reminder[charType];
-  const header = charType === 'butler' ? '🎩 あそボット' : '🐧 あそボット';
+  const header = charType === 'butler' ? '🎩 あそじぃ' : '🐧 あそぺん';
   const sender = getSender(charType);
   
   return sendGroupNotification({

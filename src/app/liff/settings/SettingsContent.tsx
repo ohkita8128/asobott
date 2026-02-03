@@ -15,6 +15,7 @@ type GroupSettings = {
   suggest_enabled: boolean;
   suggest_interval_days: number;
   suggest_min_interests: number;
+  character_type: 'butler' | 'penguin';
 };
 
 export default function SettingsContent() {
@@ -71,7 +72,7 @@ export default function SettingsContent() {
     fetchSettings();
   }, [fetchSettings]);
 
-  const updateSetting = async (key: keyof GroupSettings, value: boolean | number) => {
+  const updateSetting = async (key: keyof GroupSettings, value: boolean | number | string) => {
     if (!groupId || !settings) return;
     setIsSaving(true);
     try {
@@ -228,6 +229,46 @@ export default function SettingsContent() {
               <p className="text-xs text-slate-400 mt-2">※ 2人以上が興味ありの候補を提案します</p>
             </div>
           )}
+        </div>
+
+        {/* キャラクター設定 */}
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100">
+            <h2 className="text-sm font-semibold text-slate-700">🎭 キャラクター</h2>
+            <p className="text-xs text-slate-400 mt-0.5">通知メッセージの口調を選べます</p>
+          </div>
+
+          <div className="p-4">
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => updateSetting('character_type', 'butler')}
+                disabled={isSaving}
+                className={`p-4 rounded-xl border-2 transition text-center ${
+                  settings?.character_type === 'butler' || !settings?.character_type
+                    ? 'border-emerald-500 bg-emerald-50'
+                    : 'border-slate-200 bg-white'
+                }`}
+              >
+                <div className="text-3xl mb-2">🎩</div>
+                <p className="text-sm font-medium text-slate-700">執事</p>
+                <p className="text-xs text-slate-400 mt-1">丁寧な敬語</p>
+              </button>
+
+              <button
+                onClick={() => updateSetting('character_type', 'penguin')}
+                disabled={isSaving}
+                className={`p-4 rounded-xl border-2 transition text-center ${
+                  settings?.character_type === 'penguin'
+                    ? 'border-emerald-500 bg-emerald-50'
+                    : 'border-slate-200 bg-white'
+                }`}
+              >
+                <div className="text-3xl mb-2">🐧</div>
+                <p className="text-sm font-medium text-slate-700">ペンギン</p>
+                <p className="text-xs text-slate-400 mt-1">ゆるい口調</p>
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* リンク */}

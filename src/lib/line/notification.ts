@@ -11,6 +11,156 @@ type NotificationType =
   | 'date_confirmed'
   | 'suggestion';
 
+type CharacterType = 'butler' | 'penguin';
+
+// キャラクター設定
+const characters = {
+  butler: {
+    name: 'あそボット',
+    icon: '🎩',
+    // iconUrl: 'https://your-domain.com/butler-icon.png', // 後で設定
+  },
+  penguin: {
+    name: 'あそボット',
+    icon: '🐧',
+    // iconUrl: 'https://your-domain.com/penguin-icon.png', // 後で設定
+  },
+};
+
+// メッセージテンプレート
+const messages = {
+  scheduleStart: {
+    butler: {
+      header: '🎩 あそボット',
+      body: '日程調整が始まりました',
+      footer: 'ご都合をお聞かせください。',
+    },
+    penguin: {
+      header: '🐧 あそボット',
+      body: '日程調整はじまったよ〜！',
+      footer: 'いつ空いてる？教えてね！',
+    },
+  },
+  confirmStart: {
+    butler: {
+      header: '🎩 あそボット',
+      body: '参加確認が始まりました',
+      footer: 'ご都合をお聞かせください。',
+    },
+    penguin: {
+      header: '🐧 あそボット',
+      body: '参加確認だよ〜！',
+      footer: '参加できる？教えてね！',
+    },
+  },
+  reminder: {
+    butler: {
+      footer: 'まだの方はお早めにご回答を。',
+    },
+    penguin: {
+      footer: 'まだの人〜！早めに回答してね！',
+    },
+  },
+  dateConfirmed: {
+    butler: (title: string, dateStr: string) => `🎩 あそボット より
+
+📅「${title}」の日程が決まりました。
+
+${dateStr}
+
+皆様のご参加、お待ちしております。`,
+    penguin: (title: string, dateStr: string) => `🐧 あそボット
+
+やったー！「${title}」の日程きまったよ🎉
+
+📅 ${dateStr}
+
+みんな来てね〜！`,
+  },
+  suggestionWithItems: {
+    butler: [
+      (list: string) => `ご報告がございます 🎩
+
+人気の行きたい場所:
+${list}
+
+どなたか日程調整を始めてみては。
+「いつか」が「この日」に変わります。`,
+      (list: string, total: number) => `おや、盛り上がっているようですね 🎩
+
+${list}
+
+${total}件の「行きたい！」が集まっております。
+そろそろ日程を決めてみませんか。`,
+      (list: string) => `どなたか幹事役、いかがでしょう 🎩
+
+${list}
+
+誰かが声をあげれば、予定は動き出すもの。
+わたくしがお手伝いいたします。`,
+    ],
+    penguin: [
+      (list: string) => `みんな〜！ 🐧
+
+人気の場所はこれだよ:
+${list}
+
+誰か日程調整はじめてみない？`,
+      (list: string, total: number) => `おお〜盛り上がってるね！ 🐧
+
+${list}
+
+${total}件も「行きたい！」あるよ！
+そろそろ決めちゃおう〜`,
+      (list: string) => `幹事さん募集〜！ 🐧
+
+${list}
+
+誰かが声かければ予定は動くよ！
+お手伝いするね〜`,
+    ],
+  },
+  suggestionEmpty: {
+    butler: [
+      `最近、集まっていますか？ 🎩
+
+「行きたい場所」がまだ空でございます。
+
+焼肉、カラオケ、映画、旅行...
+思いついたら、ぜひ追加を。`,
+      `ふと思い出した時がチャンスです 🎩
+
+「いつか行きたいね」
+そう思った場所、ありませんか。
+
+リストに追加しておけば、忘れません。`,
+      `お元気ですか 🎩
+
+行きたい場所リスト、お待ちしております。
+
+小さな「行きたい」が、いつか予定になります。`,
+    ],
+    penguin: [
+      `最近みんな元気〜？ 🐧
+
+「行きたい場所」がまだないよ！
+
+焼肉、カラオケ、映画、旅行...
+なんでも追加してね〜`,
+      `ふと思い出した時がチャンス！ 🐧
+
+「いつか行きたいな〜」って場所、ない？
+
+追加しとけば忘れないよ！`,
+      `みんな元気にしてる〜？ 🐧
+
+行きたい場所、待ってるよ！
+
+小さな「行きたい」が予定になるかも！`,
+    ],
+  },
+};
+
 interface SendNotificationParams {
   groupId: string;
   wishId?: string;
@@ -20,6 +170,17 @@ interface SendNotificationParams {
     altText: string;
     contents: object;
   };
+}
+
+// グループのキャラクター設定を取得
+async function getCharacterType(groupId: string): Promise<CharacterType> {
+  const { data: settings } = await supabase
+    .from('group_settings')
+    .select('character_type')
+    .eq('group_id', groupId)
+    .single();
+  
+  return (settings?.character_type as CharacterType) || 'butler';
 }
 
 // グループにLINE通知を送信
@@ -34,13 +195,9 @@ export async function sendGroupNotification({ groupId, wishId, type, message, fl
 
     // 通知が無効な場合はスキップ
     if (settings) {
-      // 開始通知（日程調整 or 参加確認）
       if ((type === 'schedule_start' || type === 'confirm_start') && !settings.notify_schedule_start) return false;
-      // リマインド
       if ((type === 'schedule_reminder' || type === 'confirm_reminder') && !settings.notify_reminder) return false;
-      // 確定通知
       if (type === 'date_confirmed' && !settings.notify_confirmed) return false;
-      // おすすめ提案
       if (type === 'suggestion' && !settings.suggest_enabled) return false;
     }
 
@@ -73,7 +230,7 @@ export async function sendGroupNotification({ groupId, wishId, type, message, fl
     }
 
     // LINE APIで送信
-    const messages = flexMessage 
+    const messagePayload = flexMessage 
       ? [{ type: 'flex', altText: flexMessage.altText, contents: flexMessage.contents }]
       : [{ type: 'text', text: message }];
 
@@ -85,7 +242,7 @@ export async function sendGroupNotification({ groupId, wishId, type, message, fl
       },
       body: JSON.stringify({
         to: group.line_group_id,
-        messages
+        messages: messagePayload
       })
     });
 
@@ -121,6 +278,9 @@ export async function sendGroupNotification({ groupId, wishId, type, message, fl
 
 // 日程調整開始通知
 export async function notifyScheduleStart(groupId: string, wishId: string, title: string, liffUrl: string) {
+  const charType = await getCharacterType(groupId);
+  const msg = messages.scheduleStart[charType];
+  
   return sendGroupNotification({
     groupId,
     wishId,
@@ -133,10 +293,10 @@ export async function notifyScheduleStart(groupId: string, wishId: string, title
           type: 'box',
           layout: 'vertical',
           contents: [
-            { type: 'text', text: '🎩 あそボット', size: 'sm', color: '#888888' },
+            { type: 'text', text: msg.header, size: 'sm', color: '#888888' },
             { type: 'text', text: `「${title}」`, weight: 'bold', size: 'lg', margin: 'md', wrap: true },
-            { type: 'text', text: '日程調整が始まりました', size: 'md', margin: 'sm' },
-            { type: 'text', text: 'ご都合をお聞かせください。', size: 'sm', color: '#666666', margin: 'lg' },
+            { type: 'text', text: msg.body, size: 'md', margin: 'sm' },
+            { type: 'text', text: msg.footer, size: 'sm', color: '#666666', margin: 'lg' },
           ],
         },
         footer: {
@@ -158,6 +318,9 @@ export async function notifyScheduleStart(groupId: string, wishId: string, title
 
 // 参加確認開始通知
 export async function notifyConfirmStart(groupId: string, wishId: string, title: string, dateStr: string, liffUrl: string) {
+  const charType = await getCharacterType(groupId);
+  const msg = messages.confirmStart[charType];
+  
   return sendGroupNotification({
     groupId,
     wishId,
@@ -170,11 +333,11 @@ export async function notifyConfirmStart(groupId: string, wishId: string, title:
           type: 'box',
           layout: 'vertical',
           contents: [
-            { type: 'text', text: '🎩 あそボット', size: 'sm', color: '#888888' },
+            { type: 'text', text: msg.header, size: 'sm', color: '#888888' },
             { type: 'text', text: `「${title}」`, weight: 'bold', size: 'lg', margin: 'md', wrap: true },
-            { type: 'text', text: '参加確認が始まりました', size: 'md', margin: 'sm' },
+            { type: 'text', text: msg.body, size: 'md', margin: 'sm' },
             { type: 'text', text: `📅 ${dateStr}`, size: 'sm', color: '#22c55e', margin: 'md' },
-            { type: 'text', text: 'ご都合をお聞かせください。', size: 'sm', color: '#666666', margin: 'lg' },
+            { type: 'text', text: msg.footer, size: 'sm', color: '#666666', margin: 'lg' },
           ],
         },
         footer: {
@@ -196,25 +359,30 @@ export async function notifyConfirmStart(groupId: string, wishId: string, title:
 
 // 締め切りリマインド通知
 export async function notifyReminder(groupId: string, wishId: string, title: string, daysLeft: number, type: 'schedule' | 'confirm', liffUrl: string) {
+  const charType = await getCharacterType(groupId);
   const typeLabel = type === 'schedule' ? '日程調整' : '参加確認';
-  const urgency = daysLeft === 1 ? '明日が締め切り' : `あと${daysLeft}日`;
+  const urgency = daysLeft === 1 
+    ? (charType === 'butler' ? '明日が締め切り' : '明日締め切りだよ！')
+    : (charType === 'butler' ? `あと${daysLeft}日` : `あと${daysLeft}日だよ〜`);
+  const msg = messages.reminder[charType];
+  const header = charType === 'butler' ? '🎩 あそボット' : '🐧 あそボット';
   
   return sendGroupNotification({
     groupId,
     wishId,
     type: type === 'schedule' ? 'schedule_reminder' : 'confirm_reminder',
     flexMessage: {
-      altText: `「${title}」の${typeLabel}、${urgency}です`,
+      altText: `「${title}」の${typeLabel}、${urgency}`,
       contents: {
         type: 'bubble',
         body: {
           type: 'box',
           layout: 'vertical',
           contents: [
-            { type: 'text', text: '🎩 あそボット', size: 'sm', color: '#888888' },
+            { type: 'text', text: header, size: 'sm', color: '#888888' },
             { type: 'text', text: `⏰ ${urgency}`, weight: 'bold', size: 'lg', margin: 'md', color: '#f97316' },
             { type: 'text', text: `「${title}」の${typeLabel}`, size: 'md', margin: 'sm', wrap: true },
-            { type: 'text', text: 'まだの方はお早めにご回答を。', size: 'sm', color: '#666666', margin: 'lg' },
+            { type: 'text', text: msg.footer, size: 'sm', color: '#666666', margin: 'lg' },
           ],
         },
         footer: {
@@ -236,13 +404,8 @@ export async function notifyReminder(groupId: string, wishId: string, title: str
 
 // 日程確定通知
 export async function notifyDateConfirmed(groupId: string, wishId: string, title: string, dateStr: string) {
-  const message = `🎩 あそボット より
-
-📅「${title}」の日程が決まりました。
-
-${dateStr}
-
-皆様のご参加、お待ちしております。`;
+  const charType = await getCharacterType(groupId);
+  const message = messages.dateConfirmed[charType](title, dateStr);
 
   return sendGroupNotification({
     groupId,
@@ -254,34 +417,13 @@ ${dateStr}
 
 // おすすめ提案通知（候補あり）
 export async function notifySuggestion(groupId: string, suggestions: { title: string; interestCount: number }[], liffUrl: string) {
+  const charType = await getCharacterType(groupId);
   const list = suggestions.map(s => `　・${s.title}（${s.interestCount}人）`).join('\n');
   const total = suggestions.reduce((sum, s) => sum + s.interestCount, 0);
   
-  const patterns = [
-`ご報告がございます 🎩
-
-人気の行きたい場所:
-${list}
-
-どなたか日程調整を始めてみては。
-「いつか」が「この日」に変わります。`,
-
-`おや、盛り上がっているようですね 🎩
-
-${list}
-
-${total}件の「行きたい！」が集まっております。
-そろそろ日程を決めてみませんか。`,
-
-`どなたか幹事役、いかがでしょう 🎩
-
-${list}
-
-誰かが声をあげれば、予定は動き出すもの。
-わたくしがお手伝いいたします。`,
-  ];
-
-  const message = patterns[Math.floor(Math.random() * patterns.length)];
+  const patterns = messages.suggestionWithItems[charType];
+  const pattern = patterns[Math.floor(Math.random() * patterns.length)];
+  const message = pattern(list, total);
 
   return sendGroupNotification({
     groupId,
@@ -292,28 +434,8 @@ ${list}
 
 // おすすめ提案通知（候補なし）
 export async function notifySuggestionEmpty(groupId: string, liffUrl: string) {
-  const patterns = [
-`最近、集まっていますか？ 🎩
-
-「行きたい場所」がまだ空でございます。
-
-焼肉、カラオケ、映画、旅行...
-思いついたら、ぜひ追加を。`,
-
-`ふと思い出した時がチャンスです 🎩
-
-「いつか行きたいね」
-そう思った場所、ありませんか。
-
-リストに追加しておけば、忘れません。`,
-
-`お元気ですか 🎩
-
-行きたい場所リスト、お待ちしております。
-
-小さな「行きたい」が、いつか予定になります。`,
-  ];
-
+  const charType = await getCharacterType(groupId);
+  const patterns = messages.suggestionEmpty[charType];
   const message = patterns[Math.floor(Math.random() * patterns.length)];
 
   return sendGroupNotification({

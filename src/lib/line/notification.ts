@@ -213,7 +213,7 @@ export async function sendGroupNotification({ groupId, wishId, type, message, fl
       if (type === 'suggestion' && !settings.suggest_enabled) return false;
     }
 
-    // 重複チェック
+    // 重複チェック（wishIdがある場合のみ）
     if (wishId) {
       const { data: existing } = await supabase
         .from('notification_logs')
@@ -265,15 +265,13 @@ export async function sendGroupNotification({ groupId, wishId, type, message, fl
     }
 
     // 通知ログを記録
-    if (wishId) {
-      await supabase
-        .from('notification_logs')
-        .insert({
-          group_id: groupId,
-          wish_id: wishId,
-          notification_type: type
-        });
-    }
+    await supabase
+      .from('notification_logs')
+      .insert({
+        group_id: groupId,
+        wish_id: wishId || null,
+        notification_type: type
+      });
 
     // グループのlast_activity_atを更新
     await supabase

@@ -61,6 +61,7 @@ export async function GET(request: NextRequest) {
       .from('wishes')
       .select('id, title, group_id, vote_deadline')
       .eq('voting_started', true)
+      .neq('status', 'confirmed')
       .not('start_date', 'is', null)
       .not('vote_deadline', 'is', null)
       .gte('vote_deadline', now.toISOString())
@@ -121,7 +122,7 @@ export async function GET(request: NextRequest) {
         .from('wishes')
         .select(`
           id, title,
-          interests:wish_interests(count)
+          interests(id)
         `)
         .eq('group_id', group.group_id)
         .eq('status', 'open')

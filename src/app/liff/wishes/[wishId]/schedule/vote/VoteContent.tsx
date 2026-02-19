@@ -41,17 +41,17 @@ export default function VoteContent() {
 
   // 初期値設定（candidatesが読み込まれた時）
   useEffect(() => {
-    if (candidates.length > 0 && profile && !initialized) {
+    if (candidates.length > 0 && myUserId && !initialized) {
       const initial: Record<string, string> = {};
       candidates.forEach((c) => {
-        const myVote = c.votes?.find(v => v.users?.display_name === profile.displayName);
+        const myVote = c.votes?.find(v => v.user_id === myUserId);
         initial[c.id] = myVote?.availability || '';
       });
       setMyVotes(initial);
       myVotesRef.current = initial;
       setInitialized(true);
     }
-  }, [candidates, profile, initialized]);
+  }, [candidates, myUserId, initialized]);
 
   const saveVotes = useCallback(async () => {
     if (!profile) return;

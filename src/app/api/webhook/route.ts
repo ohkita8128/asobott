@@ -557,7 +557,7 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
 
   if (text === 'メニュー' || text === 'めにゅー' || text === 'menu') {
     const msg = messageTemplates.menu[charType];
-    
+
     await lineClient.replyMessage({
       replyToken: event.replyToken,
       messages: [{
@@ -605,6 +605,7 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
         },
       }],
     });
+    return;
   }
 
   // 使い方コマンド

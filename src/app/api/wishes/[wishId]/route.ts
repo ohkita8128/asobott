@@ -67,26 +67,26 @@ export async function PATCH(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // 参加確認開始通知
-    if (votingStarted && !beforeData?.voting_started && beforeData?.group_id && beforeData?.title && beforeData?.start_date) {
-      const [y, m, d] = beforeData.start_date.split('-').map(Number);
+    // 参加確認開始通知（更新後のdataを使用して最新の値で通知）
+    if (votingStarted && !beforeData?.voting_started && data?.group_id && data?.title && data?.start_date) {
+      const [y, m, d] = data.start_date.split('-').map(Number);
       const date = new Date(y, m - 1, d);
       const wd = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
       let dateStr = `${m}/${d}(${wd})`;
-      if (beforeData.start_time) dateStr += ` ${beforeData.start_time.slice(0, 5)}`;
-      
-      const liffUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}/wishes/${wishId}/confirm?groupId=${beforeData.group_id}`;
-      notifyConfirmStart(beforeData.group_id, wishId, beforeData.title, dateStr, liffUrl).catch(console.error);
+      if (data.start_time) dateStr += ` ${data.start_time.slice(0, 5)}`;
+
+      const liffUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}/wishes/${wishId}/confirm?groupId=${data.group_id}`;
+      notifyConfirmStart(data.group_id, wishId, data.title, dateStr, liffUrl).catch(console.error);
     }
 
     // 日程確定通知
-    if (confirmedDate && beforeData?.group_id && beforeData?.title) {
+    if (confirmedDate && data?.group_id && data?.title) {
       const [y, m, d] = confirmedDate.split('-').map(Number);
       const date = new Date(y, m - 1, d);
       const wd = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
       const dateStr = `${m}/${d}(${wd})`;
-      
-      notifyDateConfirmed(beforeData.group_id, wishId, beforeData.title, dateStr).catch(console.error);
+
+      notifyDateConfirmed(data.group_id, wishId, data.title, dateStr).catch(console.error);
     }
 
     return NextResponse.json(data);

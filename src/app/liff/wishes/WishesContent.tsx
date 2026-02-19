@@ -20,18 +20,18 @@ export default function WishesContent() {
 
   // 初期値設定
   useEffect(() => {
-    if (wishes.length > 0 && profile) {
+    if (wishes.length > 0 && myUserId) {
       const interests: Record<string, boolean> = {};
       const votes: Record<string, string> = {};
       wishes.forEach((w) => {
-        interests[w.id] = w.interests.some(i => i.users?.display_name === profile?.displayName);
-        const myRes = w.wish_responses?.find(r => r.users?.display_name === profile?.displayName);
+        interests[w.id] = w.interests.some(i => i.user_id === myUserId);
+        const myRes = w.wish_responses?.find(r => r.user_id === myUserId);
         votes[w.id] = myRes?.response || '';
       });
       setLocalInterests(interests);
       setLocalVotes(votes);
     }
-  }, [wishes, profile]);
+  }, [wishes, myUserId]);
 
   const processPendingActions = useCallback(async () => {
     const actions = [...pendingActionsRef.current];
@@ -208,7 +208,8 @@ export default function WishesContent() {
             const counts = getResponseCounts(wish);
             const isVoting = wish.voting_started || wish.status === 'voting';
             const isConfirmed = wish.status === 'confirmed';
-            const interestCount = wish.interests.length + (hasInterest && !wish.interests.some(i => i.users?.display_name === profile?.displayName) ? 1 : 0) - (!hasInterest && wish.interests.some(i => i.users?.display_name === profile?.displayName) ? 1 : 0);
+            const serverHasInterest = wish.interests.some(i => i.user_id === myUserId);
+            const interestCount = wish.interests.length + (hasInterest && !serverHasInterest ? 1 : 0) - (!hasInterest && serverHasInterest ? 1 : 0);
             
             return (
               <div key={wish.id} className={`px-4 py-4 ${isConfirmed ? 'bg-blue-50' : ''}`}>

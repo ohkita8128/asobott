@@ -12,7 +12,7 @@ export default function ConfirmContent() {
   const params = useParams();
   const wishId = params.wishId as string;
   
-  const { groupId, profile, isLoading: isGroupLoading, accessToken } = useGroup();
+  const { groupId, profile, isLoading: isGroupLoading, accessToken, myUserId } = useGroup();
   const { wish, isLoading: isWishLoading, refreshWishes } = useWish(groupId, wishId);
   const { members, isLoading: isMembersLoading } = useMembers(groupId);
   
@@ -22,8 +22,8 @@ export default function ConfirmContent() {
   const [initialized, setInitialized] = useState(false);
 
   // 初期値設定（wishが読み込まれた時）
-  if (wish && profile && !initialized) {
-    const myRes = wish.wish_responses?.find(r => r.users?.display_name === profile.displayName);
+  if (wish && myUserId && !initialized) {
+    const myRes = wish.wish_responses?.find(r => r.user_id === myUserId);
     if (myRes) setMyVote(myRes.response);
     setInitialized(true);
   }
@@ -42,7 +42,7 @@ export default function ConfirmContent() {
       refreshWishes();
     } catch (err) { console.error(err); }
     finally { setIsSaving(false); }
-  }, [wishId, accessToken, myVote, refreshWishes]);
+  }, [wishId, accessToken, myVote, profile, refreshWishes]);
 
   const formatDateTime = () => {
     if (!wish?.start_date) return '';
@@ -82,13 +82,13 @@ export default function ConfirmContent() {
   // 回答をグループ化
   const getResponseGroups = () => {
     const responses = wish?.wish_responses || [];
-    const respondedUserNames = new Set(responses.map(r => r.users?.display_name));
-    
+    const respondedUserIds = new Set(responses.map(r => r.user_id));
+
     return {
       ok: responses.filter(r => r.response === 'ok'),
       maybe: responses.filter(r => r.response === 'maybe'),
       ng: responses.filter(r => r.response === 'ng'),
-      noResponse: members.filter(m => !respondedUserNames.has(m.users?.display_name))
+      noResponse: members.filter(m => !respondedUserIds.has(m.user_id))
     };
   };
 

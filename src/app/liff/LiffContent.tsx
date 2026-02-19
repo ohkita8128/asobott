@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import useSWR from 'swr';
 import { useGroup } from '@/hooks/use-group';
 import { useWishes } from '@/hooks/use-wishes';
+import { fetcher, swrKeys } from '@/lib/swr/fetcher';
 import { PageSkeleton } from './components/Skeleton';
 import ErrorRetry from './components/ErrorRetry';
 
@@ -12,7 +14,10 @@ export default function LiffContent() {
   const router = useRouter();
   const { groupId, groupName, setGroupId, setGroupName, allGroups, profile, isLoading } = useGroup();
   const { wishes, isLoading: isWishesLoading, error: wishesError, refresh } = useWishes(groupId);
+  const { data: settings } = useSWR(groupId ? swrKeys.settings(groupId) : null, fetcher);
   const [showGroupSheet, setShowGroupSheet] = useState(false);
+
+  const characterIcon = settings?.character_type === 'penguin' ? '/icons/penguin-icon.png' : '/icons/butler-icon.png';
 
   const switchGroup = (newGroupId: string, newGroupName: string | null) => {
     setGroupId(newGroupId);
@@ -107,7 +112,7 @@ export default function LiffContent() {
       <header className="bg-white border-b border-slate-200 px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/icon.png" alt="あそボット" className="w-9 h-9 rounded-lg object-cover" />
+            <img src={characterIcon} alt="あそボット" className="w-9 h-9 rounded-lg object-cover" />
             <div>
               <h1 className="text-base font-semibold text-slate-900">あそボット</h1>
               <button 

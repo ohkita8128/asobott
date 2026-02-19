@@ -462,7 +462,31 @@ export async function notifySuggestionEmpty(groupId: string, liffUrl: string) {
   return sendGroupNotification({
     groupId,
     type: 'suggestion',
-    message,
-    sender
+    sender,
+    flexMessage: {
+      altText: message,
+      contents: {
+        type: 'bubble',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: message, size: 'sm', wrap: true },
+          ],
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#22c55e',
+              action: { type: 'uri', label: '行きたい場所を追加する', uri: liffUrl },
+            },
+          ],
+        },
+      },
+    },
   });
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/client';
-import { notifyReminder, notifySuggestion, notifySuggestionEmpty } from '@/lib/line/notification';
+import { notifyReminder, notifyDigest } from '@/lib/line/notification';
 
 // Vercel Cron用のAPI - 毎日実行
 export async function GET(request: NextRequest) {
@@ -9,6 +9,8 @@ export async function GET(request: NextRequest) {
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const forceDigest = request.nextUrl.searchParams.get('force') === 'true';
 
   try {
     const now = new Date();
@@ -87,7 +89,7 @@ export async function GET(request: NextRequest) {
     // 3. おすすめ提案
     const { data: groups } = await supabase
       .from('group_settings')
-      .select('group_id, suggest_enabled, suggest_interval_days, suggest_min_interests')
+      .select('group_id, suggest_enabled, suggest_interval_days')
       .eq('suggest_enabled', true);
 
     for (const group of groups || []) {
@@ -101,7 +103,7 @@ export async function GET(request: NextRequest) {
         .limit(1)
         .single();
 
-      if (lastSuggestion) {
+      if (lastSuggestion && !forceDigest) {
         const lastSent = new Date(lastSuggestion.sent_at);
         const daysSince = (now.getTime() - lastSent.getTime()) / (1000 * 60 * 60 * 24);
         if (daysSince < group.suggest_interval_days) continue;
@@ -113,22 +115,18 @@ export async function GET(request: NextRequest) {
         .select('*', { count: 'exact', head: true })
         .eq('group_id', group.group_id);
 
-      // 設定値があればそれを使う、なければメンバー数の30%（最低2人）
-      const defaultMin = Math.max(2, Math.ceil((memberCount || 0) * 0.3));
-      const minInterests = group.suggest_min_interests || defaultMin;
+      // メンバー数の30%（最低2人）を動的に計算
+      const minInterests = Math.max(2, Math.ceil((memberCount || 0) * 0.3));
 
-      // 人気の行きたいを取得
-      const { data: wishes } = await supabase
+      // 人気の行きたい（status=open, 日付未定）
+      const { data: openWishes } = await supabase
         .from('wishes')
-        .select(`
-          id, title,
-          interests(id)
-        `)
+        .select('id, title, interests(id)')
         .eq('group_id', group.group_id)
         .eq('status', 'open')
         .is('start_date', null);
 
-      const popularWishes = (wishes || [])
+      const popularWishes = (openWishes || [])
         .map(w => ({
           title: w.title,
           interestCount: Array.isArray(w.interests) ? w.interests.length : 0
@@ -137,15 +135,32 @@ export async function GET(request: NextRequest) {
         .sort((a, b) => b.interestCount - a.interestCount)
         .slice(0, 3);
 
+      // 日程調整中（status=voting, 日付未定）
+      const { data: schedulingWishes } = await supabase
+        .from('wishes')
+        .select('id, title')
+        .eq('group_id', group.group_id)
+        .eq('status', 'voting')
+        .is('start_date', null);
+
+      // 参加投票中（voting_started=true, 日付あり, 未確定）
+      const { data: confirmingWishes } = await supabase
+        .from('wishes')
+        .select('id, title, start_date')
+        .eq('group_id', group.group_id)
+        .eq('voting_started', true)
+        .neq('status', 'confirmed')
+        .not('start_date', 'is', null);
+
       const liffUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}/wishes?groupId=${group.group_id}`;
 
-      if (popularWishes.length > 0) {
-        await notifySuggestion(group.group_id, popularWishes, liffUrl);
-        results.suggestions.push(`${group.group_id}: ${popularWishes.length}件`);
-      } else {
-        await notifySuggestionEmpty(group.group_id, liffUrl);
-        results.suggestions.push(`${group.group_id}: 候補なし`);
-      }
+      await notifyDigest(group.group_id, {
+        popularWishes,
+        schedulingWishes: (schedulingWishes || []).map(w => w.title),
+        confirmingWishes: (confirmingWishes || []).map(w => w.title),
+        liffUrl,
+      });
+      results.suggestions.push(`${group.group_id}: popular=${popularWishes.length}, scheduling=${(schedulingWishes||[]).length}, confirming=${(confirmingWishes||[]).length}`);
     }
 
     return NextResponse.json({ 

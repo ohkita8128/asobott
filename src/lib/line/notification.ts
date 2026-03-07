@@ -433,46 +433,133 @@ export async function notifyDateConfirmed(groupId: string, wishId: string, title
   });
 }
 
-// おすすめ提案通知（候補あり）
-export async function notifySuggestion(groupId: string, suggestions: { title: string; interestCount: number }[], liffUrl: string) {
-  const charType = await getCharacterType(groupId);
-  const list = suggestions.map(s => `　・${s.title}（${s.interestCount}人）`).join('\n');
-  const total = suggestions.reduce((sum, s) => sum + s.interestCount, 0);
-  
-  const patterns = messages.suggestionWithItems[charType];
-  const pattern = patterns[Math.floor(Math.random() * patterns.length)];
-  const message = pattern(list, total);
-  const sender = getSender(charType);
-
-  return sendGroupNotification({
-    groupId,
-    type: 'suggestion',
-    message,
-    sender
-  });
+// 定期ダイジェスト通知
+interface DigestParams {
+  popularWishes: { title: string; interestCount: number }[];
+  schedulingWishes: string[];
+  confirmingWishes: string[];
+  liffUrl: string;
 }
 
-// おすすめ提案通知（候補なし）
-export async function notifySuggestionEmpty(groupId: string, liffUrl: string) {
+export async function notifyDigest(groupId: string, params: DigestParams) {
+  const { popularWishes, schedulingWishes, confirmingWishes, liffUrl } = params;
   const charType = await getCharacterType(groupId);
-  const patterns = messages.suggestionEmpty[charType];
-  const message = patterns[Math.floor(Math.random() * patterns.length)];
   const sender = getSender(charType);
+  const hasContent = popularWishes.length > 0 || schedulingWishes.length > 0 || confirmingWishes.length > 0;
+
+  // 何もない場合は空メッセージ
+  if (!hasContent) {
+    const patterns = messages.suggestionEmpty[charType];
+    const message = patterns[Math.floor(Math.random() * patterns.length)];
+
+    return sendGroupNotification({
+      groupId,
+      type: 'suggestion',
+      sender,
+      flexMessage: {
+        altText: message,
+        contents: {
+          type: 'bubble',
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              { type: 'text', text: message, size: 'sm', wrap: true },
+            ],
+          },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'button',
+                style: 'primary',
+                color: '#22c55e',
+                action: { type: 'uri', label: '行きたい場所を追加する', uri: liffUrl },
+              },
+            ],
+          },
+        },
+      },
+    });
+  }
+
+  // ダイジェスト Flex Message を構築
+  const header = charType === 'butler' ? '🎩 あそじぃ' : '🐧 あそぺん';
+  const bodyContents: object[] = [
+    { type: 'text', text: header, size: 'sm', color: '#888888' },
+    { type: 'text', text: 'みんなの行きたいリスト', weight: 'bold', size: 'lg', margin: 'md' },
+  ];
+
+  // 日程調整中セクション
+  if (schedulingWishes.length > 0) {
+    bodyContents.push(
+      { type: 'separator', margin: 'lg' },
+      { type: 'text', text: '📅 日程調整中', weight: 'bold', size: 'sm', margin: 'lg', color: '#f97316' },
+    );
+    for (const title of schedulingWishes) {
+      bodyContents.push(
+        { type: 'text', text: `　・${title}`, size: 'sm', margin: 'sm', wrap: true },
+      );
+    }
+    const nudge = charType === 'butler' ? 'まだの方はご回答を。' : 'まだの人は回答してね！';
+    bodyContents.push(
+      { type: 'text', text: nudge, size: 'xs', color: '#999999', margin: 'sm' },
+    );
+  }
+
+  // 参加投票中セクション
+  if (confirmingWishes.length > 0) {
+    bodyContents.push(
+      { type: 'separator', margin: 'lg' },
+      { type: 'text', text: '🗳 参加投票中', weight: 'bold', size: 'sm', margin: 'lg', color: '#8b5cf6' },
+    );
+    for (const title of confirmingWishes) {
+      bodyContents.push(
+        { type: 'text', text: `　・${title}`, size: 'sm', margin: 'sm', wrap: true },
+      );
+    }
+    const nudge = charType === 'butler' ? '参加可否をお聞かせください。' : '参加できるか教えて！';
+    bodyContents.push(
+      { type: 'text', text: nudge, size: 'xs', color: '#999999', margin: 'sm' },
+    );
+  }
+
+  // 人気の候補セクション
+  if (popularWishes.length > 0) {
+    bodyContents.push(
+      { type: 'separator', margin: 'lg' },
+      { type: 'text', text: '🔥 人気の候補', weight: 'bold', size: 'sm', margin: 'lg', color: '#22c55e' },
+    );
+    for (const w of popularWishes) {
+      bodyContents.push(
+        { type: 'text', text: `　・${w.title}（${w.interestCount}人）`, size: 'sm', margin: 'sm', wrap: true },
+      );
+    }
+    const nudge = charType === 'butler' ? '日程調整を始めてみては。' : '日程調整はじめてみない？';
+    bodyContents.push(
+      { type: 'text', text: nudge, size: 'xs', color: '#999999', margin: 'sm' },
+    );
+  }
+
+  const altParts: string[] = [];
+  if (schedulingWishes.length > 0) altParts.push(`日程調整中${schedulingWishes.length}件`);
+  if (confirmingWishes.length > 0) altParts.push(`参加投票中${confirmingWishes.length}件`);
+  if (popularWishes.length > 0) altParts.push(`人気の候補${popularWishes.length}件`);
+  const altText = `みんなの行きたいリスト：${altParts.join('、')}`;
 
   return sendGroupNotification({
     groupId,
     type: 'suggestion',
     sender,
     flexMessage: {
-      altText: message,
+      altText,
       contents: {
         type: 'bubble',
         body: {
           type: 'box',
           layout: 'vertical',
-          contents: [
-            { type: 'text', text: message, size: 'sm', wrap: true },
-          ],
+          contents: bodyContents,
         },
         footer: {
           type: 'box',
@@ -482,7 +569,7 @@ export async function notifySuggestionEmpty(groupId: string, liffUrl: string) {
               type: 'button',
               style: 'primary',
               color: '#22c55e',
-              action: { type: 'uri', label: '行きたい場所を追加する', uri: liffUrl },
+              action: { type: 'uri', label: 'リストを見る', uri: liffUrl },
             },
           ],
         },

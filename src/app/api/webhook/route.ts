@@ -478,10 +478,11 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
   if (event.message.type !== 'text') return;
 
   const text = event.message.text.toLowerCase();
-  const liffUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}`;
+  const baseLiffUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}`;
 
   // グループからのメッセージの場合、ユーザーを group_members に自動登録
   let lineGroupId: string | undefined;
+  let dbGroupId: string | undefined;
   if (event.source.type === 'group' && event.source.userId) {
     lineGroupId = event.source.groupId;
     const userId = event.source.userId;
@@ -558,10 +559,16 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
           });
         console.log('Member registered via message:', profile.displayName);
       }
+
+      if (groupData?.id) {
+        dbGroupId = groupData.id;
+      }
     } catch (err) {
       console.error('Error registering member:', err);
     }
   }
+
+  const liffUrl = dbGroupId ? `${baseLiffUrl}?groupId=${dbGroupId}` : baseLiffUrl;
 
   // キャラクター取得
   const charType = lineGroupId ? await getCharacterType(lineGroupId) : 'butler';

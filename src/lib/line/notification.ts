@@ -436,16 +436,17 @@ export async function notifyDateConfirmed(groupId: string, wishId: string, title
 // 定期ダイジェスト通知
 interface DigestParams {
   popularWishes: { title: string; interestCount: number }[];
+  waitingWishes: string[];
   schedulingWishes: string[];
   confirmingWishes: string[];
   liffUrl: string;
 }
 
 export async function notifyDigest(groupId: string, params: DigestParams) {
-  const { popularWishes, schedulingWishes, confirmingWishes, liffUrl } = params;
+  const { popularWishes, waitingWishes, schedulingWishes, confirmingWishes, liffUrl } = params;
   const charType = await getCharacterType(groupId);
   const sender = getSender(charType);
-  const hasContent = popularWishes.length > 0 || schedulingWishes.length > 0 || confirmingWishes.length > 0;
+  const hasContent = popularWishes.length > 0 || waitingWishes.length > 0 || schedulingWishes.length > 0 || confirmingWishes.length > 0;
 
   // 何もない場合は空メッセージ
   if (!hasContent) {
@@ -542,10 +543,28 @@ export async function notifyDigest(groupId: string, params: DigestParams) {
     );
   }
 
+  // 反応待ちセクション
+  if (waitingWishes.length > 0) {
+    bodyContents.push(
+      { type: 'separator', margin: 'lg' },
+      { type: 'text', text: '💬 反応待ち', weight: 'bold', size: 'sm', margin: 'lg', color: '#64748b' },
+    );
+    for (const title of waitingWishes) {
+      bodyContents.push(
+        { type: 'text', text: `　・${title}`, size: 'sm', margin: 'sm', wrap: true },
+      );
+    }
+    const nudge = charType === 'butler' ? '気になる方は「行きたい！」を。' : '気になったら「行きたい！」押してね！';
+    bodyContents.push(
+      { type: 'text', text: nudge, size: 'xs', color: '#999999', margin: 'sm' },
+    );
+  }
+
   const altParts: string[] = [];
   if (schedulingWishes.length > 0) altParts.push(`日程調整中${schedulingWishes.length}件`);
   if (confirmingWishes.length > 0) altParts.push(`参加投票中${confirmingWishes.length}件`);
   if (popularWishes.length > 0) altParts.push(`人気の候補${popularWishes.length}件`);
+  if (waitingWishes.length > 0) altParts.push(`反応待ち${waitingWishes.length}件`);
   const altText = `みんなの行きたいリスト：${altParts.join('、')}`;
 
   return sendGroupNotification({

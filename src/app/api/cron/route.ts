@@ -126,12 +126,20 @@ export async function GET(request: NextRequest) {
         .eq('status', 'open')
         .is('start_date', null);
 
-      const popularWishes = (openWishes || [])
+      const allOpenWishes = (openWishes || [])
         .map(w => ({
           title: w.title,
           interestCount: Array.isArray(w.interests) ? w.interests.length : 0
-        }))
+        }));
+
+      const popularWishes = allOpenWishes
         .filter(w => w.interestCount >= minInterests)
+        .sort((a, b) => b.interestCount - a.interestCount)
+        .slice(0, 3);
+
+      // 反応待ちの候補（人気に入らなかったもの）
+      const waitingWishes = allOpenWishes
+        .filter(w => w.interestCount < minInterests)
         .sort((a, b) => b.interestCount - a.interestCount)
         .slice(0, 3);
 
@@ -156,11 +164,12 @@ export async function GET(request: NextRequest) {
 
       await notifyDigest(group.group_id, {
         popularWishes,
+        waitingWishes: waitingWishes.map(w => w.title),
         schedulingWishes: (schedulingWishes || []).map(w => w.title),
         confirmingWishes: (confirmingWishes || []).map(w => w.title),
         liffUrl,
       });
-      results.suggestions.push(`${group.group_id}: popular=${popularWishes.length}, scheduling=${(schedulingWishes||[]).length}, confirming=${(confirmingWishes||[]).length}`);
+      results.suggestions.push(`${group.group_id}: popular=${popularWishes.length}, waiting=${waitingWishes.length}, scheduling=${(schedulingWishes||[]).length}, confirming=${(confirmingWishes||[]).length}`);
     }
 
     return NextResponse.json({ 

@@ -1,9 +1,18 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import type { Metadata } from 'next';
 
-export const metadata = {
-  title: 'あそボット - LINEグループの予定調整をもっと簡単に',
-  description: 'グループの「いつか行きたいね」を「この日に行こう！」に変えるLINE Bot。行きたい場所の共有から日程調整、参加確認まで、グループの予定調整をスムーズにサポートします。',
+export const metadata: Metadata = {
+  title: 'LINEグループの予定調整をもっと簡単に',
+  description: 'グループの「いつか行きたいね」を「この日に行こう！」に変えるLINE Bot。行きたい場所の共有から日程調整、参加確認まで、LINEだけで完結。無料・アプリ不要。',
+  alternates: {
+    canonical: '/lp',
+  },
+  openGraph: {
+    title: 'あそボット - LINEグループの予定調整をもっと簡単に',
+    description: 'グループの「いつか行きたいね」を「この日に行こう！」に変えるLINE Bot。行きたい場所の共有から日程調整まで、無料・アプリ不要。',
+    url: '/lp',
+  },
 };
 
 const LineSvg = ({ className }: { className?: string }) => (
@@ -27,8 +36,71 @@ function ScreenshotCard({ src, alt, caption }: { src: string; alt: string; capti
 
 export default function LandingPage() {
   const botFriendUrl = process.env.LINE_BOT_FRIEND_URL || 'https://lin.ee/xxxxx';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://asobott.vercel.app';
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'WebApplication',
+        name: 'あそボット',
+        url: `${baseUrl}/lp`,
+        description: 'LINEグループの予定調整をもっと簡単に。行きたい場所の共有から日程調整まで、LINEだけで完結。',
+        applicationCategory: 'UtilitiesApplication',
+        operatingSystem: 'LINE',
+        offers: {
+          '@type': 'Offer',
+          price: '0',
+          priceCurrency: 'JPY',
+        },
+        image: `${baseUrl}/ogp.png`,
+      },
+      {
+        '@type': 'FAQPage',
+        mainEntity: [
+          {
+            '@type': 'Question',
+            name: '本当に無料ですか？',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'はい、すべての機能を無料でご利用いただけます。',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'グループのメッセージは見られますか？',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'いいえ。あそボットはメッセージの内容を保存・閲覧しません。コマンド（「メニュー」等）への応答のみ行います。',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: '複数のグループで使えますか？',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'はい、複数のグループにあそボットを招待して、それぞれで予定調整できます。',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'グループから退会させるとデータは消えますか？',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'はい、グループから退会させると、そのグループのデータは削除されます。',
+            },
+          },
+        ],
+      },
+    ],
+  };
 
   return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
     <div className="min-h-screen bg-white">
       {/* ヘッダー */}
       <header className="bg-white/90 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50">
@@ -84,8 +156,8 @@ export default function LandingPage() {
               <span className="text-emerald-600">「この日に行こう！」</span>へ
             </h1>
             <p className="text-lg text-slate-600 mb-6">
-              LINEグループの予定調整をもっと簡単に。<br />
-              行きたい場所の共有から日程調整まで、あそボットがサポートします。
+              LINEグループの予定調整・日程調整をもっと簡単に。<br />
+              行きたい場所の共有からスケジュール調整まで、無料のLINE Botがサポートします。
             </p>
             <a
               href={botFriendUrl}
@@ -126,9 +198,9 @@ export default function LandingPage() {
       <section className="py-16 px-4">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-2xl font-bold text-slate-900 text-center mb-4">
-            LINEだけでここまでできる
+            LINE Botだけでここまでできる
           </h2>
-          <p className="text-slate-500 text-center mb-12">アプリのインストール不要。LINEの中で完結します。</p>
+          <p className="text-slate-500 text-center mb-12">新しいアプリのインストール不要。予定調整がLINEの中で完結します。</p>
           <div className="flex flex-col md:flex-row items-start justify-center gap-8 md:gap-10">
             <ScreenshotCard
               src="/screenshots/home.png"
@@ -207,7 +279,7 @@ export default function LandingPage() {
       <section className="py-16 px-4">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl font-bold text-slate-900 text-center mb-12">
-            使い方はかんたん
+            LINE日程調整Botの使い方はかんたん
           </h2>
           <div className="space-y-8">
             <div className="flex items-start gap-6">
@@ -277,6 +349,31 @@ export default function LandingPage() {
                 <p className="text-sm text-slate-600">グループから退会させるだけ。データもすべて削除されます。</p>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* こんな方におすすめ */}
+      <section className="py-16 px-4">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-2xl font-bold text-slate-900 text-center mb-4">
+            こんなグループにおすすめ
+          </h2>
+          <p className="text-slate-500 text-center mb-10">LINEでの予定調整・日程調整にお困りの方へ</p>
+          <div className="grid md:grid-cols-2 gap-4">
+            {[
+              '友達グループで飲み会・遊びの日程調整をしたい',
+              'LINEグループで「行きたい場所」を共有・管理したい',
+              'グループの予定調整を毎回誰かに任せず自動化したい',
+              'スケジュール調整のやり取りがLINEで流れてしまう',
+              '複数人の空いてる日をまとめて確認したい',
+              '新しいアプリを入れずにLINEだけで日程を決めたい',
+            ].map((text) => (
+              <div key={text} className="flex items-start gap-3 bg-emerald-50 rounded-lg p-4">
+                <span className="text-emerald-500 mt-0.5 flex-shrink-0">&#10003;</span>
+                <p className="text-slate-700 text-sm">{text}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -384,5 +481,6 @@ export default function LandingPage() {
         </div>
       </footer>
     </div>
+    </>
   );
 }

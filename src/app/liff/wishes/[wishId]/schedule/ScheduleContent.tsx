@@ -45,7 +45,7 @@ export default function ScheduleContent() {
       const voteDeadline = deadline ? `${deadline}T${deadlineTime}:00` : null;
       await authRequest(`/api/wishes/${wishId}/schedule`, 'POST', accessToken, { dates: selectedDates.sort(), voteDeadline });
       router.push(`/liff/wishes/${wishId}/schedule/vote?groupId=${groupId}`);
-    } catch (err) { alert('作成に失敗しました'); }
+    } catch { alert('作成に失敗しました'); }
     finally { setIsSubmitting(false); }
   };
 

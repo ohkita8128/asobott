@@ -11,7 +11,7 @@ export async function GET(
     const { groupId } = await params;
 
     // 既存の設定を取得、なければデフォルト値で作成
-    let { data, error } = await supabase
+    const { data: existing, error } = await supabase
       .from('group_settings')
       .select('*')
       .eq('group_id', groupId)
@@ -21,24 +21,24 @@ export async function GET(
       // レコードがない場合はデフォルト値で作成
       const { data: newData, error: insertError } = await supabase
         .from('group_settings')
-        .insert({ 
+        .insert({
           group_id: groupId,
           suggest_interval_days: 14  // デフォルト2週間
         })
         .select()
         .single();
-      
+
       if (insertError) {
         console.error('Error creating settings:', insertError);
         return NextResponse.json({ error: insertError.message }, { status: 500 });
       }
-      data = newData;
+      return NextResponse.json(newData);
     } else if (error) {
       console.error('Error fetching settings:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json(existing);
   } catch (error) {
     console.error('Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

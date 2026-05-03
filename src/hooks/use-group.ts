@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { useLiff } from './use-liff';
@@ -15,8 +15,6 @@ type Group = {
 export function useGroup() {
   const { profile, context, accessToken, isReady } = useLiff();
   const searchParams = useSearchParams();
-  const [groupId, setGroupId] = useState<string | null>(null);
-  const [groupName, setGroupName] = useState<string | null>(null);
   const registeredRef = useRef(false);
 
   // URLパラメータからgroupIdを取得
@@ -53,10 +51,9 @@ export function useGroup() {
             displayName: profile.displayName,
             pictureUrl: profile.pictureUrl,
             lineGroupId: lineGroupId,
-            groupId: paramGroupId, // URLパラメータのグループID（DBのID）
+            groupId: paramGroupId,
           }),
         });
-        // グループ登録後にリストを更新
         if (lineGroupId || paramGroupId) {
           mutateUserGroups();
         }
@@ -68,42 +65,40 @@ export function useGroup() {
     registerUser();
   }, [isReady, profile, lineGroupId, paramGroupId, mutateUserGroups]);
 
-  useEffect(() => {
-    if (!isReady) return;
+  // URL / コンテキスト / userGroups から派生してgroupId/groupNameを決定
+  const { groupId, groupName } = useMemo(() => {
+    if (!isReady) return { groupId: null as string | null, groupName: null as string | null };
 
     // 1. URLパラメータがあればそれを使う
     if (paramGroupId) {
-      setGroupId(paramGroupId);
       const found = userGroups?.find(g => g.group_id === paramGroupId);
-      if (found?.groups?.name) setGroupName(found.groups.name);
-      return;
+      return { groupId: paramGroupId, groupName: found?.groups?.name || null };
     }
 
     // 2. LINEグループIDから取得
     if (groupByLineId?.id) {
-      setGroupId(groupByLineId.id);
-      setGroupName(groupByLineId.name || null);
-      return;
+      return {
+        groupId: groupByLineId.id as string,
+        groupName: (groupByLineId.name as string) || null,
+      };
     }
 
-    // 3. 所属グループから最初のものを使う
+    // 3. 所属グループからlast_activity_at順で先頭
     if (userGroups && userGroups.length > 0) {
-      // last_activity_at順にソート
       const sorted = [...userGroups].sort((a, b) => {
         const aTime = a.groups?.last_activity_at || '1970-01-01';
         const bTime = b.groups?.last_activity_at || '1970-01-01';
         return bTime.localeCompare(aTime);
       });
-      setGroupId(sorted[0].group_id);
-      setGroupName(sorted[0].groups?.name || null);
+      return { groupId: sorted[0].group_id, groupName: sorted[0].groups?.name || null };
     }
+
+    return { groupId: null, groupName: null };
   }, [isReady, paramGroupId, groupByLineId, userGroups]);
 
   return {
     groupId,
     groupName,
-    setGroupId,
-    setGroupName,
     allGroups: userGroups || [],
     myUserId,
     accessToken,

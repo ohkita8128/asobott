@@ -12,16 +12,14 @@ import ErrorRetry from './components/ErrorRetry';
 
 export default function LiffContent() {
   const router = useRouter();
-  const { groupId, groupName, setGroupId, setGroupName, allGroups, profile, isLoading } = useGroup();
-  const { wishes, isLoading: isWishesLoading, error: wishesError, refresh } = useWishes(groupId);
+  const { groupId, groupName, allGroups, profile, isLoading } = useGroup();
+  const { wishes, error: wishesError, refresh } = useWishes(groupId);
   const { data: settings } = useSWR(groupId ? swrKeys.settings(groupId) : null, fetcher);
   const [showGroupSheet, setShowGroupSheet] = useState(false);
 
   const characterIcon = settings?.character_type === 'penguin' ? '/icons/penguin-icon.png' : '/icons/butler-icon.png';
 
-  const switchGroup = (newGroupId: string, newGroupName: string | null) => {
-    setGroupId(newGroupId);
-    setGroupName(newGroupName);
+  const switchGroup = (newGroupId: string) => {
     setShowGroupSheet(false);
     router.push(`/liff?groupId=${newGroupId}`);
   };
@@ -154,7 +152,7 @@ export default function LiffContent() {
                 allGroups.map((g) => (
                   <button
                     key={g.group_id}
-                    onClick={() => switchGroup(g.group_id, g.groups?.name || null)}
+                    onClick={() => switchGroup(g.group_id)}
                     className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 border-b border-slate-100"
                   >
                     <span className="text-sm text-slate-700">{g.groups?.name || '名前なし'}</span>

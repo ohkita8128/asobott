@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useGroup } from '@/hooks/use-group';
 import { useWishes } from '@/hooks/use-wishes';
@@ -9,29 +9,24 @@ import { WishListSkeleton } from '../components/Skeleton';
 import ErrorRetry from '../components/ErrorRetry';
 
 export default function WishesContent() {
-  const { groupId, profile, isLoading: isGroupLoading, myUserId, accessToken } = useGroup();
+  const { groupId, isLoading: isGroupLoading, myUserId, accessToken } = useGroup();
   const { wishes, isLoading: isWishesLoading, error: wishesError, refresh, refreshWishes } = useWishes(groupId);
-  
-  const [localInterests, setLocalInterests] = useState<Record<string, boolean>>({});
-  const [localVotes, setLocalVotes] = useState<Record<string, string>>({});
+
+  // 楽観的更新の差分（refreshWishes 完了後にクリア）
+  const [interestOverrides, setInterestOverrides] = useState<Record<string, boolean>>({});
   const [sortBy, setSortBy] = useState<'popular' | 'newest'>('popular');
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pendingActionsRef = useRef<{type: string; wishId: string; value?: string}[]>([]);
 
-  // 初期値設定
-  useEffect(() => {
-    if (wishes.length > 0 && myUserId) {
-      const interests: Record<string, boolean> = {};
-      const votes: Record<string, string> = {};
-      wishes.forEach((w) => {
-        interests[w.id] = w.interests.some(i => i.user_id === myUserId);
-        const myRes = w.wish_responses?.find(r => r.user_id === myUserId);
-        votes[w.id] = myRes?.response || '';
-      });
-      setLocalInterests(interests);
-      setLocalVotes(votes);
-    }
-  }, [wishes, myUserId]);
+  // 表示用：サーバー値 + override 差分
+  const localInterests = useMemo(() => {
+    const result: Record<string, boolean> = {};
+    wishes.forEach((w) => {
+      const serverHas = w.interests.some(i => i.user_id === myUserId);
+      result[w.id] = interestOverrides[w.id] ?? serverHas;
+    });
+    return result;
+  }, [wishes, myUserId, interestOverrides]);
 
   const processPendingActions = useCallback(async () => {
     const actions = [...pendingActionsRef.current];
@@ -50,11 +45,12 @@ export default function WishesContent() {
       } catch (err) { console.error(err); }
     }
     refreshWishes();
+    setInterestOverrides({});
   }, [accessToken, refreshWishes]);
 
   const toggleInterest = (wishId: string) => {
     const current = localInterests[wishId];
-    setLocalInterests(prev => ({ ...prev, [wishId]: !current }));
+    setInterestOverrides(prev => ({ ...prev, [wishId]: !current }));
     pendingActionsRef.current.push({ type: 'interest', wishId, value: current ? 'remove' : 'add' });
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(processPendingActions, 300);

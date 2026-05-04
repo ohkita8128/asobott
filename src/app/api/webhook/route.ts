@@ -714,6 +714,49 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
         },
       }],
     });
+    return;
+  }
+
+  // 個人トーク（1対1）でキーワードに該当しない場合のデフォルト応答
+  if (event.source.type === 'user') {
+    const isButler = charType === 'butler';
+    const greeting = isButler ? 'お声がけありがとうございます 🎩' : 'メッセージありがとう！🐧';
+    const body = isButler
+      ? 'ご用件は「メニュー」とお声がけくださいませ。\nグループにお招きいただければ、皆様の予定調整をお手伝いいたします。'
+      : 'ご用件は「メニュー」って送ってね！\nグループに呼んでくれたら、みんなの予定調整を手伝うよ！';
+
+    await lineClient.replyMessage({
+      replyToken: event.replyToken,
+      messages: [{
+        type: 'flex',
+        altText: greeting,
+        ...(sender && { sender }),
+        contents: {
+          type: 'bubble',
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              { type: 'text', text: greeting, weight: 'bold', size: 'md', wrap: true },
+              { type: 'text', text: body, size: 'sm', color: '#666666', margin: 'md', wrap: true },
+            ],
+          },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'button',
+                style: 'primary',
+                color: '#22c55e',
+                action: { type: 'uri', label: '管理画面を開く', uri: liffUrl },
+              },
+            ],
+          },
+        },
+      }],
+    });
   }
 }
 

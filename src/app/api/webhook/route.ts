@@ -560,11 +560,33 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
 
   const liffUrl = dbGroupId ? `${baseLiffUrl}?groupId=${dbGroupId}` : baseLiffUrl;
 
-  // キャラクター取得
-  const charType = lineGroupId ? await getCharacterType(lineGroupId) : 'butler';
+  const trimmed = text.trim();
+
+  // キャラクター取得（グループ設定がデフォルト）
+  let charType: CharacterType = lineGroupId ? await getCharacterType(lineGroupId) : 'butler';
+
+  // 名指しで呼ばれた場合は、そのキャラで返答（グループ設定を上書き）
+  const butlerCalls = ['あそじぃ', 'あそじい', '@あそじぃ', '@あそじい'];
+  const penguinCalls = ['あそぺん', '@あそぺん'];
+  if (butlerCalls.includes(trimmed)) {
+    charType = 'butler';
+  } else if (penguinCalls.includes(trimmed)) {
+    charType = 'penguin';
+  }
+
   const sender = getSender(charType);
 
-  if (text === 'メニュー' || text === 'めにゅー' || text === 'menu') {
+  // 呼びかけ判定：メニュー系コマンド or キャラ名・サービス名（完全一致のみ）
+  const calloutKeywords = [
+    'メニュー', 'めにゅー', 'menu',
+    ...butlerCalls,
+    ...penguinCalls,
+    'あそぼっと', 'あそボット', 'あそぼーと',
+    '@あそぼっと', '@あそボット', '@あそぼーと',
+  ];
+  const isCalledOut = calloutKeywords.some(k => trimmed === k.toLowerCase());
+
+  if (isCalledOut) {
     const msg = messageTemplates.menu[charType];
 
     await lineClient.replyMessage({

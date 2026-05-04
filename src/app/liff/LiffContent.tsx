@@ -12,14 +12,16 @@ import ErrorRetry from './components/ErrorRetry';
 
 export default function LiffContent() {
   const router = useRouter();
-  const { groupId, groupName, allGroups, profile, isLoading } = useGroup();
-  const { wishes, error: wishesError, refresh } = useWishes(groupId);
+  const { groupId, groupName, setGroupId, setGroupName, allGroups, profile, isLoading } = useGroup();
+  const { wishes, isLoading: isWishesLoading, error: wishesError, refresh } = useWishes(groupId);
   const { data: settings } = useSWR(groupId ? swrKeys.settings(groupId) : null, fetcher);
   const [showGroupSheet, setShowGroupSheet] = useState(false);
 
   const characterIcon = settings?.character_type === 'penguin' ? '/icons/penguin-icon.png' : '/icons/butler-icon.png';
 
-  const switchGroup = (newGroupId: string) => {
+  const switchGroup = (newGroupId: string, newGroupName: string | null) => {
+    setGroupId(newGroupId);
+    setGroupName(newGroupName);
     setShowGroupSheet(false);
     router.push(`/liff?groupId=${newGroupId}`);
   };
@@ -96,16 +98,7 @@ export default function LiffContent() {
   if (isLoading) return <PageSkeleton />;
   
   // グループなし
-  if (!groupId) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-      <div className="bg-white rounded-xl border p-6 text-center max-w-sm w-full">
-        <p className="text-slate-500 whitespace-pre-line">所属グループがありません。{'\n\n'}Botをグループに招待して、{'\n'}グループで何かメッセージを送ってください。</p>
-        <Link href="/liff/howto" className="text-xs text-emerald-600 hover:underline mt-4 inline-block">
-          📖 使い方ガイドを見る
-        </Link>
-      </div>
-    </div>
-  );
+  if (!groupId) return <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4"><div className="bg-white rounded-xl border p-6 text-center"><p className="text-slate-500 whitespace-pre-line">所属グループがありません。{'\n\n'}Botをグループに招待して、{'\n'}グループで何かメッセージを送ってください。</p></div></div>;
 
   // エラー
   if (wishesError) return <ErrorRetry message="データの読み込みに失敗しました" onRetry={refresh} />;
@@ -133,18 +126,7 @@ export default function LiffContent() {
               </button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/liff/howto"
-              className="p-1.5 hover:bg-slate-100 rounded-full text-slate-500"
-              aria-label="使い方"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </Link>
-            {profile?.pictureUrl && <img src={profile.pictureUrl} alt="" className="w-8 h-8 rounded-full" />}
-          </div>
+          {profile?.pictureUrl && <img src={profile.pictureUrl} alt="" className="w-8 h-8 rounded-full" />}
         </div>
       </header>
 
@@ -172,7 +154,7 @@ export default function LiffContent() {
                 allGroups.map((g) => (
                   <button
                     key={g.group_id}
-                    onClick={() => switchGroup(g.group_id)}
+                    onClick={() => switchGroup(g.group_id, g.groups?.name || null)}
                     className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 border-b border-slate-100"
                   >
                     <span className="text-sm text-slate-700">{g.groups?.name || '名前なし'}</span>

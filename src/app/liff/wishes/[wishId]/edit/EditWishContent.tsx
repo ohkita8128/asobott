@@ -71,7 +71,7 @@ export default function EditWishContent() {
       await authRequest(`/api/wishes/${wishId}`, 'PATCH', accessToken, body);
       refreshWishes();
       router.push(`/liff/wishes?groupId=${groupId}`);
-    } catch { alert('更新に失敗しました'); }
+    } catch (err) { alert('更新に失敗しました'); }
     finally { setIsSubmitting(false); }
   };
 

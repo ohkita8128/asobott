@@ -21,7 +21,7 @@ export default function GroupsContent() {
         if (!res.ok) { setFetchError('エラーが発生しました'); setIsLoading(false); return; }
         if (Array.isArray(data)) { setGroups(data); if (data.length === 1) { router.push(`/liff?groupId=${data[0].group_id}`); return; } }
         setIsLoading(false);
-      } catch { setFetchError('通信エラー'); setIsLoading(false); }
+      } catch (err) { setFetchError('通信エラー'); setIsLoading(false); }
     };
     if (isReady && profile) fetchGroups();
   }, [isReady, profile, router]);

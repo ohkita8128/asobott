@@ -35,6 +35,7 @@ const messageTemplates = {
     butler: {
       title: 'お招きいただきありがとうございます 🎩',
       intro: 'あそじぃと申します。\n皆様の「いつか行きたいね」を「この日に行こう！」に変える執事でございます。',
+      safety: '普段は静かに控えておりますので、ご安心くださいませ。\n大事なときだけ、そっとお声がけいたします。',
       featuresTitle: '💡 わたくしにできること',
       features: '1. 皆様の行きたい場所をお預かりいたします\n2.「行きたい！」の盛り上がりをお伝えいたします\n3. 日程調整から参加確認まで、お任せくださいませ',
       menuHint: '💬「メニュー」とお声がけいただければ、いつでも参ります',
@@ -44,6 +45,7 @@ const messageTemplates = {
     penguin: {
       title: 'グループに呼んでくれてありがとう！🐧',
       intro: 'あそぺんだよ！\nみんなの「いつか行きたいね」を「この日に行こう！」にするよ！',
+      safety: '普段はおとなしくしてるから安心してね。\n大事なときだけ声かけるよ！',
       featuresTitle: '💡 あそぺんにできること',
       features: '1. みんなの行きたい場所を覚えておくよ\n2.「行きたい！」の盛り上がりを教えるよ\n3. 日程調整から参加確認まで、任せてね！',
       menuHint: '💬「メニュー」って送ってくれたら、すぐ来るよ！',
@@ -255,6 +257,14 @@ async function handleJoin(event: WebhookEvent & { type: 'join' }) {
               {
                 type: 'text',
                 text: msg.intro,
+                size: 'sm',
+                color: '#666666',
+                margin: 'md',
+                wrap: true,
+              },
+              {
+                type: 'text',
+                text: msg.safety,
                 size: 'sm',
                 color: '#666666',
                 margin: 'md',
@@ -560,33 +570,11 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
 
   const liffUrl = dbGroupId ? `${baseLiffUrl}?groupId=${dbGroupId}` : baseLiffUrl;
 
-  const trimmed = text.trim();
-
-  // キャラクター取得（グループ設定がデフォルト）
-  let charType: CharacterType = lineGroupId ? await getCharacterType(lineGroupId) : 'butler';
-
-  // 名指しで呼ばれた場合は、そのキャラで返答（グループ設定を上書き）
-  const butlerCalls = ['あそじぃ', 'あそじい', '@あそじぃ', '@あそじい'];
-  const penguinCalls = ['あそぺん', '@あそぺん'];
-  if (butlerCalls.includes(trimmed)) {
-    charType = 'butler';
-  } else if (penguinCalls.includes(trimmed)) {
-    charType = 'penguin';
-  }
-
+  // キャラクター取得
+  const charType = lineGroupId ? await getCharacterType(lineGroupId) : 'butler';
   const sender = getSender(charType);
 
-  // 呼びかけ判定：メニュー系コマンド or キャラ名・サービス名（完全一致のみ）
-  const calloutKeywords = [
-    'メニュー', 'めにゅー', 'menu',
-    ...butlerCalls,
-    ...penguinCalls,
-    'あそぼっと', 'あそボット', 'あそぼーと',
-    '@あそぼっと', '@あそボット', '@あそぼーと',
-  ];
-  const isCalledOut = calloutKeywords.some(k => trimmed === k.toLowerCase());
-
-  if (isCalledOut) {
+  if (text === 'メニュー' || text === 'めにゅー' || text === 'menu') {
     const msg = messageTemplates.menu[charType];
 
     await lineClient.replyMessage({
@@ -643,14 +631,7 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
   if (text === '使い方' || text === 'つかいかた' || text === 'help') {
     const howtoUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}/howto`;
     const msg = messageTemplates.howto[charType];
-    const steps = [
-      '① 行きたい場所を追加',
-      '②「行きたい！」で表明',
-      '③ 日程調整',
-      '④ 日程を確定',
-      '⑤ 参加確認',
-    ];
-
+    
     await lineClient.replyMessage({
       replyToken: event.replyToken,
       messages: [{
@@ -676,22 +657,6 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
                 color: '#666666',
                 margin: 'md',
               },
-              { type: 'separator', margin: 'lg' },
-              {
-                type: 'text',
-                text: '■ 基本の流れ',
-                weight: 'bold',
-                size: 'sm',
-                margin: 'lg',
-              },
-              ...steps.map((s) => ({
-                type: 'text' as const,
-                text: s,
-                size: 'sm' as const,
-                color: '#444444',
-                margin: 'sm' as const,
-                wrap: true,
-              })),
             ],
           },
           footer: {
@@ -705,52 +670,9 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
                 color: '#22c55e',
                 action: {
                   type: 'uri',
-                  label: '詳しい使い方を見る',
+                  label: '使い方を見る',
                   uri: howtoUrl,
                 },
-              },
-            ],
-          },
-        },
-      }],
-    });
-    return;
-  }
-
-  // 個人トーク（1対1）でキーワードに該当しない場合のデフォルト応答
-  if (event.source.type === 'user') {
-    const isButler = charType === 'butler';
-    const greeting = isButler ? 'お声がけありがとうございます 🎩' : 'メッセージありがとう！🐧';
-    const body = isButler
-      ? 'ご用件は「メニュー」とお声がけくださいませ。\nグループにお招きいただければ、皆様の予定調整をお手伝いいたします。'
-      : 'ご用件は「メニュー」って送ってね！\nグループに呼んでくれたら、みんなの予定調整を手伝うよ！';
-
-    await lineClient.replyMessage({
-      replyToken: event.replyToken,
-      messages: [{
-        type: 'flex',
-        altText: greeting,
-        ...(sender && { sender }),
-        contents: {
-          type: 'bubble',
-          body: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-              { type: 'text', text: greeting, weight: 'bold', size: 'md', wrap: true },
-              { type: 'text', text: body, size: 'sm', color: '#666666', margin: 'md', wrap: true },
-            ],
-          },
-          footer: {
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'sm',
-            contents: [
-              {
-                type: 'button',
-                style: 'primary',
-                color: '#22c55e',
-                action: { type: 'uri', label: '管理画面を開く', uri: liffUrl },
               },
             ],
           },

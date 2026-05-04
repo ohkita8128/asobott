@@ -57,7 +57,7 @@ export default function VoteContent() {
     if (!profile) return;
     setIsSaving(true);
     const votes = Object.entries(myVotesRef.current)
-      .filter(([, v]) => v)
+      .filter(([_, v]) => v)
       .map(([candidateId, availability]) => ({ candidateId, availability }));
     try {
       await authRequest(`/api/wishes/${wishId}/schedule/vote`, 'POST', accessToken, { votes });
@@ -66,7 +66,7 @@ export default function VoteContent() {
       refreshSchedule();
     } catch (err) { console.error(err); }
     finally { setIsSaving(false); }
-  }, [wishId, accessToken, refreshSchedule, profile]);
+  }, [wishId, accessToken, refreshSchedule]);
 
   const handleVote = (candidateId: string, value: string) => {
     const newValue = myVotes[candidateId] === value ? '' : value;

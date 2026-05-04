@@ -44,7 +44,7 @@ export default function NewWishContent() {
         const data = await res.json();
         if (res.ok && data && data.length > 0) setGroupId(data[0].group_id); 
         else setFetchError('グループが見つかりません');
-      } catch { setFetchError('通信エラー'); }
+      } catch (err) { setFetchError('通信エラー'); }
     };
     if (isReady && profile) fetchGroupId();
   }, [isReady, profile, context.groupId, searchParams]);
@@ -71,7 +71,7 @@ export default function NewWishContent() {
       
       await authRequest(`/api/groups/${groupId}/wishes`, 'POST', accessToken, body);
       router.push(`/liff/wishes?groupId=${groupId}`);
-    } catch { alert('追加に失敗しました'); }
+    } catch (err) { alert('追加に失敗しました'); }
     finally { setIsSubmitting(false); }
   };
 

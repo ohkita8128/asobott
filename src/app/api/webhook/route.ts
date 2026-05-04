@@ -35,7 +35,6 @@ const messageTemplates = {
     butler: {
       title: 'お招きいただきありがとうございます 🎩',
       intro: 'あそじぃと申します。\n皆様の「いつか行きたいね」を「この日に行こう！」に変える執事でございます。',
-      safety: '普段は静かに控えておりますので、ご安心くださいませ。\n大事なときだけ、そっとお声がけいたします。',
       featuresTitle: '💡 わたくしにできること',
       features: '1. 皆様の行きたい場所をお預かりいたします\n2.「行きたい！」の盛り上がりをお伝えいたします\n3. 日程調整から参加確認まで、お任せくださいませ',
       menuHint: '💬「メニュー」とお声がけいただければ、いつでも参ります',
@@ -45,7 +44,6 @@ const messageTemplates = {
     penguin: {
       title: 'グループに呼んでくれてありがとう！🐧',
       intro: 'あそぺんだよ！\nみんなの「いつか行きたいね」を「この日に行こう！」にするよ！',
-      safety: '普段はおとなしくしてるから安心してね。\n大事なときだけ声かけるよ！',
       featuresTitle: '💡 あそぺんにできること',
       features: '1. みんなの行きたい場所を覚えておくよ\n2.「行きたい！」の盛り上がりを教えるよ\n3. 日程調整から参加確認まで、任せてね！',
       menuHint: '💬「メニュー」って送ってくれたら、すぐ来るよ！',
@@ -257,14 +255,6 @@ async function handleJoin(event: WebhookEvent & { type: 'join' }) {
               {
                 type: 'text',
                 text: msg.intro,
-                size: 'sm',
-                color: '#666666',
-                margin: 'md',
-                wrap: true,
-              },
-              {
-                type: 'text',
-                text: msg.safety,
                 size: 'sm',
                 color: '#666666',
                 margin: 'md',
@@ -631,7 +621,14 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
   if (text === '使い方' || text === 'つかいかた' || text === 'help') {
     const howtoUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}/howto`;
     const msg = messageTemplates.howto[charType];
-    
+    const steps = [
+      '① 行きたい場所を追加',
+      '②「行きたい！」で表明',
+      '③ 日程調整',
+      '④ 日程を確定',
+      '⑤ 参加確認',
+    ];
+
     await lineClient.replyMessage({
       replyToken: event.replyToken,
       messages: [{
@@ -657,6 +654,22 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
                 color: '#666666',
                 margin: 'md',
               },
+              { type: 'separator', margin: 'lg' },
+              {
+                type: 'text',
+                text: '■ 基本の流れ',
+                weight: 'bold',
+                size: 'sm',
+                margin: 'lg',
+              },
+              ...steps.map((s) => ({
+                type: 'text' as const,
+                text: s,
+                size: 'sm' as const,
+                color: '#444444',
+                margin: 'sm' as const,
+                wrap: true,
+              })),
             ],
           },
           footer: {
@@ -670,7 +683,7 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
                 color: '#22c55e',
                 action: {
                   type: 'uri',
-                  label: '使い方を見る',
+                  label: '詳しい使い方を見る',
                   uri: howtoUrl,
                 },
               },

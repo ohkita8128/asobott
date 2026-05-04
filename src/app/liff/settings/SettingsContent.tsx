@@ -271,26 +271,51 @@ export default function SettingsContent() {
           </div>
         </div>
 
-        {/* リンク */}
-        <div className="text-center pt-4 space-y-2">
-          <a 
-            href="/terms" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-xs text-slate-400 hover:text-slate-600"
+        {/* ヘルプ・サポート */}
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100">
+            <h2 className="text-sm font-semibold text-slate-700">ℹ️ ヘルプ・サポート</h2>
+          </div>
+          <Link
+            href="/liff/howto"
+            className="flex items-center justify-between px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition"
           >
-            利用規約
-          </a>
-          <a 
+            <div>
+              <p className="text-sm text-slate-700">📖 使い方ガイド</p>
+              <p className="text-xs text-slate-400">基本の流れと機能の説明</p>
+            </div>
+            <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+          <a
             href="https://docs.google.com/forms/d/e/1FAIpQLSeaPG1tmJtwvwZ1aaKb_kTGAL0KyKUYzZ79YZav6lj112zWKA/viewform"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-emerald-600 hover:underline"
+            className="flex items-center justify-between px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition"
           >
-            📝 ご意見・ご要望
+            <div>
+              <p className="text-sm text-slate-700">📝 ご意見・ご要望</p>
+              <p className="text-xs text-slate-400">フィードバックを送る</p>
+            </div>
+            <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
           </a>
-          <p className="text-xs text-slate-300">あそボット v1.3.0</p>
+          <a
+            href="/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition"
+          >
+            <p className="text-sm text-slate-700">利用規約</p>
+            <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </a>
         </div>
+
+        <p className="text-center text-xs text-slate-300 pt-2">あそボット v1.3.0</p>
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200">

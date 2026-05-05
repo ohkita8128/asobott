@@ -1,7 +1,5 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import useSWR from 'swr';
 import { useGroup } from '@/hooks/use-group';
@@ -11,20 +9,11 @@ import { PageSkeleton } from './components/Skeleton';
 import ErrorRetry from './components/ErrorRetry';
 
 export default function LiffContent() {
-  const router = useRouter();
-  const { groupId, groupName, setGroupId, setGroupName, allGroups, profile, isLoading } = useGroup();
+  const { groupId, profile, isLoading } = useGroup();
   const { wishes, isLoading: isWishesLoading, error: wishesError, refresh } = useWishes(groupId);
   const { data: settings } = useSWR(groupId ? swrKeys.settings(groupId) : null, fetcher);
-  const [showGroupSheet, setShowGroupSheet] = useState(false);
 
   const characterIcon = settings?.character_type === 'penguin' ? '/icons/penguin-icon.png' : '/icons/butler-icon.png';
-
-  const switchGroup = (newGroupId: string, newGroupName: string | null) => {
-    setGroupId(newGroupId);
-    setGroupName(newGroupName);
-    setShowGroupSheet(false);
-    router.push(`/liff?groupId=${newGroupId}`);
-  };
 
   // 自分が未回答の投票
   const getUnansweredVotes = () => {
@@ -122,18 +111,7 @@ export default function LiffContent() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src={characterIcon} alt="あそボット" className="w-9 h-9 rounded-lg object-cover" />
-            <div>
-              <h1 className="text-base font-semibold text-slate-900">あそボット</h1>
-              <button 
-                onClick={() => setShowGroupSheet(true)}
-                className="flex items-center gap-1 text-xs text-slate-500"
-              >
-                <span className="max-w-[120px] truncate">{groupName || 'グループ'}</span>
-                <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-            </div>
+            <h1 className="text-base font-semibold text-slate-900">あそボット</h1>
           </div>
           <div className="flex items-center gap-2">
             <Link
@@ -149,53 +127,6 @@ export default function LiffContent() {
           </div>
         </div>
       </header>
-
-      {/* ボトムシート */}
-      {showGroupSheet && (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowGroupSheet(false)} />
-          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[70vh] overflow-hidden animate-slide-up">
-            <div className="p-4 border-b border-slate-200">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-900">グループを選択</h2>
-                <button onClick={() => setShowGroupSheet(false)} className="p-2 text-slate-400">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div className="overflow-y-auto max-h-[calc(70vh-140px)]">
-              {allGroups.length === 0 ? (
-                <div className="p-6 text-center">
-                  <p className="text-sm text-slate-500">グループがありません</p>
-                </div>
-              ) : (
-                allGroups.map((g) => (
-                  <button
-                    key={g.group_id}
-                    onClick={() => switchGroup(g.group_id, g.groups?.name || null)}
-                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 border-b border-slate-100"
-                  >
-                    <span className="text-sm text-slate-700">{g.groups?.name || '名前なし'}</span>
-                    {g.group_id === groupId && (
-                      <svg className="w-5 h-5 text-emerald-500" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
-                      </svg>
-                    )}
-                  </button>
-                ))
-              )}
-            </div>
-            {/* ヘルプ */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200">
-              <p className="text-xs text-slate-500">
-                💡 グループが表示されない場合は、<span className="font-medium">グループトークから</span>管理画面を開くか、グループで何かメッセージを送ってください。
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       <main className="p-4 space-y-4">
         {/* 未回答の投票 */}

@@ -2,6 +2,7 @@
 
 import { SWRConfig } from 'swr';
 import { ToastProvider } from './components/Toast';
+import GroupHeader from './components/GroupHeader';
 
 export default function LiffLayout({
   children,
@@ -9,7 +10,7 @@ export default function LiffLayout({
   children: React.ReactNode;
 }) {
   return (
-    <SWRConfig 
+    <SWRConfig
       value={{
         revalidateOnFocus: false,
         dedupingInterval: 5000,
@@ -17,6 +18,7 @@ export default function LiffLayout({
       }}
     >
       <ToastProvider>
+        <GroupHeader />
         {children}
       </ToastProvider>
     </SWRConfig>

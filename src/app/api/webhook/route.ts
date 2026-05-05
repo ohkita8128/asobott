@@ -788,6 +788,55 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
         },
       }],
     });
+    return;
+  }
+
+  // チラ見反応：「〜行きたい」検出 + クールダウン1時間 + 50%確率で反応
+  if (event.source.type === 'group' && dbGroupId) {
+    const original = event.message.text;
+    const isWishExpression =
+      original.includes('行きたい')
+      && !/行きたい[？?]/.test(original)
+      && !/行きたい(の|ん)[？?]/.test(original)
+      && !original.includes('行きたいって')
+      && !/行きたい(場所|リスト|人|気分|なら|時|とき)/.test(original);
+
+    if (isWishExpression) {
+      try {
+        const { data: groupRow } = await supabase
+          .from('groups')
+          .select('last_chime_at')
+          .eq('id', dbGroupId)
+          .single();
+
+        const now = new Date();
+        const cooldownMs = 60 * 60 * 1000; // 1時間
+        const lastChime = groupRow?.last_chime_at ? new Date(groupRow.last_chime_at) : null;
+        const cooldownPassed = !lastChime || (now.getTime() - lastChime.getTime()) >= cooldownMs;
+
+        if (cooldownPassed && Math.random() < 0.5) {
+          const chimeText = charType === 'butler'
+            ? '（ふむ……ご一緒なさいますか？🎩）'
+            : '|ω･)ﾁﾗ 行きたいの？';
+
+          await lineClient.replyMessage({
+            replyToken: event.replyToken,
+            messages: [{
+              type: 'text',
+              text: chimeText,
+              ...(sender && { sender }),
+            }],
+          });
+
+          await supabase
+            .from('groups')
+            .update({ last_chime_at: now.toISOString() })
+            .eq('id', dbGroupId);
+        }
+      } catch (err) {
+        console.error('Chime error:', err);
+      }
+    }
   }
 }
 

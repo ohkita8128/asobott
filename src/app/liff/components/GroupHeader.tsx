@@ -17,7 +17,10 @@ export default function GroupHeader() {
     setGroupId(newGroupId);
     setGroupName(newGroupName);
     setShowSheet(false);
-    router.push(`/liff?groupId=${newGroupId}`);
+    // wish詳細ページは別グループに存在しないのでホームへ。それ以外は現在のページに留まる
+    const isWishDetail = /^\/liff\/wishes\/[^/]+\/(confirm|edit|schedule)/.test(pathname);
+    const targetPath = isWishDetail ? '/liff' : pathname;
+    router.push(`${targetPath}?groupId=${newGroupId}`);
   };
 
   return (

@@ -23,7 +23,7 @@ export async function GET(
         .from('group_settings')
         .insert({
           group_id: groupId,
-          suggest_interval_days: 14  // デフォルト2週間
+          suggest_interval_days: 60  // デフォルト2ヶ月
         })
         .select()
         .single();

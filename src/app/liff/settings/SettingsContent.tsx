@@ -211,7 +211,7 @@ export default function SettingsContent() {
             <div className="p-4">
               <p className="text-sm text-slate-700 mb-2">提案頻度</p>
               <div className="flex gap-2 flex-wrap">
-                {[14, 30, 60, 120].map((days) => (
+                {[30, 60, 90, 120, 180, 365].map((days) => (
                   <button
                     key={days}
                     onClick={() => updateSetting('suggest_interval_days', days)}
@@ -222,7 +222,7 @@ export default function SettingsContent() {
                         : 'bg-slate-100 text-slate-600'
                     }`}
                   >
-                    {days === 14 ? '2週間' : days === 30 ? '1ヶ月' : days === 60 ? '2ヶ月' : '4ヶ月'}
+                    {days === 30 ? '1ヶ月' : days === 60 ? '2ヶ月' : days === 90 ? '3ヶ月' : days === 120 ? '4ヶ月' : days === 180 ? '半年' : '1年'}
                   </button>
                 ))}
               </div>

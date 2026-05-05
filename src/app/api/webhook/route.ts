@@ -605,7 +605,19 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
   ];
   const isCalledOut = calloutKeywords.some(k => trimmed === k.toLowerCase());
 
-  if (isCalledOut) {
+  // @メンション判定：bot名でメンションされていれば後ろの文字に関係なく反応
+  const botMentionNames = ['あそぼっと', 'あそボット', 'あそぼーと'];
+  const mention = event.message.type === 'text' ? event.message.mention : undefined;
+  const isMentioned = mention?.mentionees.some((m) => {
+    if (m.type !== 'user') return false;
+    const mentionText = event.message.type === 'text'
+      ? event.message.text.slice(m.index, m.index + m.length)
+      : '';
+    const normalized = mentionText.replace(/^@/, '').toLowerCase();
+    return botMentionNames.some((n) => n.toLowerCase() === normalized);
+  }) ?? false;
+
+  if (isCalledOut || isMentioned) {
     const msg = messageTemplates.menu[charType];
 
     await lineClient.replyMessage({

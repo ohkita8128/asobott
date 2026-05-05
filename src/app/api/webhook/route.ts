@@ -794,8 +794,8 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
   // チラ見反応：「〜行きたい」「〜行ってみたい」の語尾のみ検出 + クールダウン1時間 + 50%確率で反応
   if (event.source.type === 'group' && dbGroupId) {
     const original = event.message.text;
-    // 行きたい / 行ってみたい で終わる（オプションで な/なあ/なぁ + ！/!）
-    const wishEndingRegex = /(行きたい|行ってみたい)(なあ|なぁ|な)?[！!]*\s*$/m;
+    // 行きたい / 行ってみたい / いきたい / いってみたい で終わる（オプションで な/なあ/なぁ/ね/ねえ/ねぇ + ！/!）
+    const wishEndingRegex = /(行きたい|行ってみたい|いきたい|いってみたい)(なあ|なぁ|な|ねえ|ねぇ|ね)?[！!]*\s*$/m;
     const isWishExpression = wishEndingRegex.test(original);
 
     if (isWishExpression) {

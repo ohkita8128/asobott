@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { SWRConfig } from 'swr';
 import { ToastProvider } from './components/Toast';
 import GroupHeader from './components/GroupHeader';
@@ -18,7 +19,9 @@ export default function LiffLayout({
       }}
     >
       <ToastProvider>
-        <GroupHeader />
+        <Suspense fallback={null}>
+          <GroupHeader />
+        </Suspense>
         {children}
       </ToastProvider>
     </SWRConfig>

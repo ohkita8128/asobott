@@ -791,15 +791,12 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
     return;
   }
 
-  // チラ見反応：「〜行きたい」検出 + クールダウン1時間 + 50%確率で反応
+  // チラ見反応：「〜行きたい」「〜行ってみたい」の語尾のみ検出 + クールダウン1時間 + 50%確率で反応
   if (event.source.type === 'group' && dbGroupId) {
     const original = event.message.text;
-    const isWishExpression =
-      original.includes('行きたい')
-      && !/行きたい[？?]/.test(original)
-      && !/行きたい(の|ん)[？?]/.test(original)
-      && !original.includes('行きたいって')
-      && !/行きたい(場所|リスト|人|気分|なら|時|とき)/.test(original);
+    // 行きたい / 行ってみたい で終わる（オプションで な/なあ/なぁ + ！/!）
+    const wishEndingRegex = /(行きたい|行ってみたい)(なあ|なぁ|な)?[！!]*\s*$/m;
+    const isWishExpression = wishEndingRegex.test(original);
 
     if (isWishExpression) {
       try {

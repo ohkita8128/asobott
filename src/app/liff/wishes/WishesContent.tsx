@@ -67,10 +67,19 @@ export default function WishesContent() {
     } catch (err) { console.error(err); }
   };
 
-  const deleteWish = async (wishId: string) => {
-    if (!confirm('削除しますか？')) return;
+  const deleteWish = async (wish: typeof wishes[0]) => {
+    let confirmMsg: string;
+    if (wish.status === 'confirmed') {
+      confirmMsg = `⚠️ 「${wish.title}」は確定済みの予定です。\n削除するとメンバーの予定からも消えます。\n\n本当に削除しますか？`;
+    } else if (wish.voting_started || wish.status === 'voting') {
+      const phase = wish.start_date ? '参加確認中' : '日程調整中';
+      confirmMsg = `⚠️ 「${wish.title}」は${phase}です。\nメンバーの回答もすべて削除されます。\n\n本当に削除しますか？`;
+    } else {
+      confirmMsg = `「${wish.title}」を削除しますか？`;
+    }
+    if (!confirm(confirmMsg)) return;
     try {
-      await authRequest(`/api/wishes/${wishId}`, 'DELETE', accessToken);
+      await authRequest(`/api/wishes/${wish.id}`, 'DELETE', accessToken);
       refreshWishes();
     } catch (err) { console.error(err); alert('削除に失敗しました'); }
   };
@@ -229,7 +238,7 @@ export default function WishesContent() {
                       </Link>
                     )}
                     {canDelete(wish) && (
-                      <button onClick={() => deleteWish(wish.id)} className="text-slate-300 hover:text-red-500 p-1">
+                      <button onClick={() => deleteWish(wish)} className="text-slate-300 hover:text-red-500 p-1">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                       </button>
                     )}

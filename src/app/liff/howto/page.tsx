@@ -273,7 +273,7 @@ export default function HowToUsePage() {
             </div>
             <div>
               <p className="font-medium text-slate-900 text-sm">Q. 行きたいを削除したい</p>
-              <p className="text-xs text-slate-500 mt-1">A. 作成者のみ削除できます。行きたいリストで右上のゴミ箱アイコンをタップしてください。日程調整・参加確認が始まると削除できなくなります。</p>
+              <p className="text-xs text-slate-500 mt-1">A. 作成者であれば、日程調整中や確定後でもいつでも削除できます。行きたいリストで右上のゴミ箱アイコンをタップしてください。</p>
             </div>
             <div>
               <p className="font-medium text-slate-900 text-sm">Q. 通知が届きません</p>

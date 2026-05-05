@@ -122,7 +122,7 @@ export default function WishesContent() {
     };
   };
 
-  const canDelete = (wish: typeof wishes[0]) => wish.created_by === myUserId && !wish.voting_started && wish.status === 'open';
+  const canDelete = (wish: typeof wishes[0]) => wish.created_by === myUserId;
   const canEdit = (wish: typeof wishes[0]) => wish.created_by === myUserId && !wish.voting_started && wish.status === 'open';
 
   useEffect(() => {

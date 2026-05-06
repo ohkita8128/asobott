@@ -19,6 +19,12 @@ export async function GET(request: NextRequest) {
       suggestions: [] as string[]
     };
 
+    // 0. expire_at 経過した pending_notifications を破棄（push せず）
+    await supabase
+      .from('pending_notifications')
+      .delete()
+      .lt('expire_at', now.toISOString());
+
     // 1. 締め切り3日前のリマインド（日程調整）
     const threeDaysLater = new Date(now);
     threeDaysLater.setDate(threeDaysLater.getDate() + 3);
@@ -107,6 +113,18 @@ export async function GET(request: NextRequest) {
         const lastSent = new Date(lastSuggestion.sent_at);
         const daysSince = (now.getTime() - lastSent.getTime()) / (1000 * 60 * 60 * 24);
         if (daysSince < group.suggest_interval_days) continue;
+      }
+
+      // 既に pending suggestion がある場合は再 queue しない（UNIQUE INDEX もあるが先に弾いて無駄処理を省略）
+      if (!forceDigest) {
+        const { data: existingPending } = await supabase
+          .from('pending_notifications')
+          .select('id')
+          .eq('group_id', group.group_id)
+          .eq('notification_type', 'suggestion')
+          .is('claimed_at', null)
+          .limit(1);
+        if (existingPending && existingPending.length > 0) continue;
       }
 
       // グループメンバー数を取得

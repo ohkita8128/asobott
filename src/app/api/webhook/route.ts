@@ -617,61 +617,42 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
     return botMentionNames.some((n) => n.toLowerCase() === normalized);
   }) ?? false;
 
+  // 返信メッセージを組み立てる（最後に1回 replyMessage する）
+  const messagesToReply: object[] = [];
+  let chimeWillFire = false;
+
   if (isCalledOut || isMentioned) {
     const msg = messageTemplates.menu[charType];
-
-    await lineClient.replyMessage({
-      replyToken: event.replyToken,
-      messages: [{
-        type: 'flex',
-        altText: 'メニュー',
-        ...(sender && { sender }),
-        contents: {
-          type: 'bubble',
-          body: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-              {
-                type: 'text',
-                text: msg.title,
-                weight: 'bold',
-                size: 'lg',
-              },
-              {
-                type: 'text',
-                text: msg.subtitle,
-                size: 'sm',
-                color: '#666666',
-                margin: 'md',
-              },
-            ],
-          },
-          footer: {
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'sm',
-            contents: [
-              {
-                type: 'button',
-                style: 'primary',
-                color: '#22c55e',
-                action: {
-                  type: 'uri',
-                  label: '管理画面を開く',
-                  uri: liffUrl,
-                },
-              },
-            ],
-          },
+    messagesToReply.push({
+      type: 'flex',
+      altText: 'メニュー',
+      ...(sender && { sender }),
+      contents: {
+        type: 'bubble',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: msg.title, weight: 'bold', size: 'lg' },
+            { type: 'text', text: msg.subtitle, size: 'sm', color: '#666666', margin: 'md' },
+          ],
         },
-      }],
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#22c55e',
+              action: { type: 'uri', label: '管理画面を開く', uri: liffUrl },
+            },
+          ],
+        },
+      },
     });
-    return;
-  }
-
-  // 使い方コマンド
-  if (text === '使い方' || text === 'つかいかた' || text === 'help') {
+  } else if (text === '使い方' || text === 'つかいかた' || text === 'help') {
     const howtoUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}/howto`;
     const msg = messageTemplates.howto[charType];
     const steps = [
@@ -681,124 +662,86 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
       '④ 日程を確定',
       '⑤ 参加確認',
     ];
-
-    await lineClient.replyMessage({
-      replyToken: event.replyToken,
-      messages: [{
-        type: 'flex',
-        altText: '使い方',
-        ...(sender && { sender }),
-        contents: {
-          type: 'bubble',
-          body: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-              {
-                type: 'text',
-                text: msg.title,
-                weight: 'bold',
-                size: 'lg',
-              },
-              {
-                type: 'text',
-                text: msg.subtitle,
-                size: 'sm',
-                color: '#666666',
-                margin: 'md',
-              },
-              { type: 'separator', margin: 'lg' },
-              {
-                type: 'text',
-                text: '■ 基本の流れ',
-                weight: 'bold',
-                size: 'sm',
-                margin: 'lg',
-              },
-              ...steps.map((s) => ({
-                type: 'text' as const,
-                text: s,
-                size: 'sm' as const,
-                color: '#444444',
-                margin: 'sm' as const,
-                wrap: true,
-              })),
-            ],
-          },
-          footer: {
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'sm',
-            contents: [
-              {
-                type: 'button',
-                style: 'primary',
-                color: '#22c55e',
-                action: {
-                  type: 'uri',
-                  label: '詳しい使い方を見る',
-                  uri: howtoUrl,
-                },
-              },
-            ],
-          },
+    messagesToReply.push({
+      type: 'flex',
+      altText: '使い方',
+      ...(sender && { sender }),
+      contents: {
+        type: 'bubble',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: msg.title, weight: 'bold', size: 'lg' },
+            { type: 'text', text: msg.subtitle, size: 'sm', color: '#666666', margin: 'md' },
+            { type: 'separator', margin: 'lg' },
+            { type: 'text', text: '■ 基本の流れ', weight: 'bold', size: 'sm', margin: 'lg' },
+            ...steps.map((s) => ({
+              type: 'text' as const,
+              text: s,
+              size: 'sm' as const,
+              color: '#444444',
+              margin: 'sm' as const,
+              wrap: true,
+            })),
+          ],
         },
-      }],
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#22c55e',
+              action: { type: 'uri', label: '詳しい使い方を見る', uri: howtoUrl },
+            },
+          ],
+        },
+      },
     });
-    return;
-  }
-
-  // 個人トーク（1対1）でキーワードに該当しない場合のデフォルト応答
-  if (event.source.type === 'user') {
+  } else if (event.source.type === 'user') {
+    // 個人トーク（1対1）でキーワードに該当しない場合のデフォルト応答
     const isButler = charType === 'butler';
     const greeting = isButler ? 'お声がけありがとうございます 🎩' : 'メッセージありがとう！🐧';
     const body = isButler
       ? 'ご用件は「メニュー」とお声がけくださいませ。\nグループにお招きいただければ、皆様の予定調整をお手伝いいたします。'
       : 'ご用件は「メニュー」って送ってね！\nグループに呼んでくれたら、みんなの予定調整を手伝うよ！';
-
-    await lineClient.replyMessage({
-      replyToken: event.replyToken,
-      messages: [{
-        type: 'flex',
-        altText: greeting,
-        ...(sender && { sender }),
-        contents: {
-          type: 'bubble',
-          body: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-              { type: 'text', text: greeting, weight: 'bold', size: 'md', wrap: true },
-              { type: 'text', text: body, size: 'sm', color: '#666666', margin: 'md', wrap: true },
-            ],
-          },
-          footer: {
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'sm',
-            contents: [
-              {
-                type: 'button',
-                style: 'primary',
-                color: '#22c55e',
-                action: { type: 'uri', label: '管理画面を開く', uri: liffUrl },
-              },
-            ],
-          },
+    messagesToReply.push({
+      type: 'flex',
+      altText: greeting,
+      ...(sender && { sender }),
+      contents: {
+        type: 'bubble',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: greeting, weight: 'bold', size: 'md', wrap: true },
+            { type: 'text', text: body, size: 'sm', color: '#666666', margin: 'md', wrap: true },
+          ],
         },
-      }],
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#22c55e',
+              action: { type: 'uri', label: '管理画面を開く', uri: liffUrl },
+            },
+          ],
+        },
+      },
     });
-    return;
-  }
-
-  // チラ見反応：「〜行きたい」「〜行ってみたい」の語尾のみ検出 + クールダウン1時間 + 50%確率で反応
-  if (event.source.type === 'group' && dbGroupId) {
+  } else if (event.source.type === 'group' && dbGroupId) {
+    // チラ見反応：「〜行きたい」「〜行ってみたい」の語尾のみ + クールダウン1時間 + 50%確率
     const original = event.message.text;
-    // 行きたい / 行ってみたい / いきたい / いってみたい で終わる（オプションで な/なあ/なぁ/ね/ねえ/ねぇ + ！/!）
     const wishEndingRegex = /(行きたい|行ってみたい|いきたい|いってみたい)(なあ|なぁ|な|ねえ|ねぇ|ね)?[！!]*\s*$/m;
-    const isWishExpression = wishEndingRegex.test(original);
-
-    if (isWishExpression) {
+    if (wishEndingRegex.test(original)) {
       try {
         const { data: groupRow } = await supabase
           .from('groups')
@@ -807,7 +750,7 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
           .single();
 
         const now = new Date();
-        const cooldownMs = 60 * 60 * 1000; // 1時間
+        const cooldownMs = 60 * 60 * 1000;
         const lastChime = groupRow?.last_chime_at ? new Date(groupRow.last_chime_at) : null;
         const cooldownPassed = !lastChime || (now.getTime() - lastChime.getTime()) >= cooldownMs;
 
@@ -815,24 +758,84 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
           const chimeText = charType === 'butler'
             ? '（ふむ……ご一緒なさいますか？🎩）'
             : '|ω･)ﾁﾗ 行きたいの？';
-
-          await lineClient.replyMessage({
-            replyToken: event.replyToken,
-            messages: [{
-              type: 'text',
-              text: chimeText,
-              ...(sender && { sender }),
-            }],
+          messagesToReply.push({
+            type: 'text',
+            text: chimeText,
+            ...(sender && { sender }),
           });
-
-          await supabase
-            .from('groups')
-            .update({ last_chime_at: now.toISOString() })
-            .eq('id', dbGroupId);
+          chimeWillFire = true;
         }
       } catch (err) {
         console.error('Chime error:', err);
       }
+    }
+  }
+
+  // pending を吸い上げ（グループのみ・残り枠分）
+  let claimedPending: { id: string; payload: object; group_id: string; wish_id: string | null; notification_type: string }[] = [];
+  if (event.source.type === 'group' && dbGroupId) {
+    const room = 5 - messagesToReply.length;
+    if (room > 0) {
+      try {
+        const { data, error } = await supabase.rpc('claim_pending_notifications', {
+          p_group_id: dbGroupId,
+          p_limit: room,
+        });
+        if (error) {
+          console.error('Claim pending error:', error);
+        } else if (Array.isArray(data) && data.length > 0) {
+          claimedPending = data;
+          for (const p of claimedPending) {
+            messagesToReply.push(p.payload);
+          }
+        }
+      } catch (err) {
+        console.error('Claim pending exception:', err);
+      }
+    }
+  }
+
+  if (messagesToReply.length === 0) return;
+
+  try {
+    await lineClient.replyMessage({
+      replyToken: event.replyToken,
+      messages: messagesToReply as Parameters<typeof lineClient.replyMessage>[0]['messages'],
+    });
+
+    // 副作用：成功時にコミット
+    if (chimeWillFire && dbGroupId) {
+      await supabase
+        .from('groups')
+        .update({ last_chime_at: new Date().toISOString() })
+        .eq('id', dbGroupId);
+    }
+
+    if (claimedPending.length > 0 && dbGroupId) {
+      const logs = claimedPending.map((p) => ({
+        group_id: p.group_id,
+        wish_id: p.wish_id,
+        notification_type: p.notification_type,
+        delivery_method: 'reply',
+      }));
+      await supabase.from('notification_logs').insert(logs);
+      await supabase
+        .from('pending_notifications')
+        .delete()
+        .in('id', claimedPending.map((p) => p.id));
+      await supabase
+        .from('groups')
+        .update({ last_activity_at: new Date().toISOString() })
+        .eq('id', dbGroupId);
+    }
+  } catch (err) {
+    console.error('Reply error:', err);
+    // claim した pending は claimed_at をリセットして cron に任せる
+    if (claimedPending.length > 0) {
+      await supabase
+        .from('pending_notifications')
+        .update({ claimed_at: null })
+        .in('id', claimedPending.map((p) => p.id));
     }
   }
 }

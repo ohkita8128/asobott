@@ -195,6 +195,100 @@ function getSender(charType: CharacterType): { name: string; iconUrl: string } |
   return undefined; // デフォルトアイコンを使用
 }
 
+// LINE メッセージペイロードを組み立てる（push/queue 共通）
+function buildLineMessage(
+  message: string | undefined,
+  flexMessage: { altText: string; contents: object } | undefined,
+  sender: { name: string; iconUrl: string } | undefined
+): object {
+  return flexMessage
+    ? { type: 'flex', altText: flexMessage.altText, contents: flexMessage.contents, ...(sender && { sender }) }
+    : { type: 'text', text: message, ...(sender && { sender }) };
+}
+
+// 設定で無効化されているかチェック
+function isNotificationDisabled(type: NotificationType, settings: { notify_schedule_start?: boolean; notify_reminder?: boolean; notify_confirmed?: boolean; suggest_enabled?: boolean } | null): boolean {
+  if (!settings) return false;
+  if ((type === 'schedule_start' || type === 'confirm_start') && !settings.notify_schedule_start) return true;
+  if ((type === 'schedule_reminder' || type === 'confirm_reminder') && !settings.notify_reminder) return true;
+  if (type === 'date_confirmed' && !settings.notify_confirmed) return true;
+  if (type === 'suggestion' && !settings.suggest_enabled) return true;
+  return false;
+}
+
+// pending_notifications に通知を登録（次のグループ発言で reply に乗せる）
+interface QueueParams extends SendNotificationParams {
+  ttlMinutes?: number | null;  // この時間経過後にpush fallback。null = fallbackしない
+  expireDays?: number;          // 配信されないままこの日数経過したら破棄
+}
+
+export async function queueNotification({
+  groupId, wishId, type, message, flexMessage, sender,
+  ttlMinutes = null, expireDays = 30
+}: QueueParams): Promise<boolean> {
+  try {
+    // 設定チェック
+    const { data: settings } = await supabase
+      .from('group_settings')
+      .select('notify_schedule_start, notify_reminder, notify_confirmed, suggest_enabled')
+      .eq('group_id', groupId)
+      .single();
+    if (isNotificationDisabled(type, settings)) return false;
+
+    // 重複チェック（既に配信済みなら queue しない）
+    if (wishId) {
+      const { data: existing } = await supabase
+        .from('notification_logs')
+        .select('id')
+        .eq('group_id', groupId)
+        .eq('wish_id', wishId)
+        .eq('notification_type', type)
+        .maybeSingle();
+      if (existing) {
+        console.log('Notification already delivered, skip queue:', type, wishId);
+        return false;
+      }
+    }
+
+    const payload = buildLineMessage(message, flexMessage, sender);
+    const now = new Date();
+    const ttl_at = ttlMinutes != null ? new Date(now.getTime() + ttlMinutes * 60 * 1000).toISOString() : null;
+    const expire_at = new Date(now.getTime() + expireDays * 24 * 60 * 60 * 1000).toISOString();
+
+    // suggestion は1グループ1件に絞る（既存pendingを上書き）
+    if (type === 'suggestion') {
+      await supabase
+        .from('pending_notifications')
+        .delete()
+        .eq('group_id', groupId)
+        .eq('notification_type', 'suggestion')
+        .is('claimed_at', null);
+    }
+
+    const { error } = await supabase
+      .from('pending_notifications')
+      .insert({
+        group_id: groupId,
+        wish_id: wishId || null,
+        notification_type: type,
+        payload,
+        ttl_at,
+        expire_at,
+      });
+
+    if (error) {
+      console.error('Error queueing notification:', error);
+      return false;
+    }
+
+    console.log('Notification queued:', type, wishId || groupId);
+    return true;
+  } catch (error) {
+    console.error('Error in queueNotification:', error);
+    return false;
+  }
+}
+
 // グループにLINE通知を送信
 export async function sendGroupNotification({ groupId, wishId, type, message, flexMessage, sender }: SendNotificationParams): Promise<boolean> {
   try {
@@ -270,7 +364,8 @@ export async function sendGroupNotification({ groupId, wishId, type, message, fl
       .insert({
         group_id: groupId,
         wish_id: wishId || null,
-        notification_type: type
+        notification_type: type,
+        delivery_method: 'push',
       });
 
     // グループのlast_activity_atを更新
@@ -453,7 +548,7 @@ export async function notifyDigest(groupId: string, params: DigestParams) {
     const patterns = messages.suggestionEmpty[charType];
     const message = patterns[Math.floor(Math.random() * patterns.length)];
 
-    return sendGroupNotification({
+    return queueNotification({
       groupId,
       type: 'suggestion',
       sender,
@@ -567,7 +662,7 @@ export async function notifyDigest(groupId: string, params: DigestParams) {
   if (waitingWishes.length > 0) altParts.push(`反応待ち${waitingWishes.length}件`);
   const altText = `みんなの行きたいリスト：${altParts.join('、')}`;
 
-  return sendGroupNotification({
+  return queueNotification({
     groupId,
     type: 'suggestion',
     sender,

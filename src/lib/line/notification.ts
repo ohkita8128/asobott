@@ -381,17 +381,21 @@ export async function sendGroupNotification({ groupId, wishId, type, message, fl
   }
 }
 
+// 24時間 = 一日1回の cron 周期に合わせた fallback push までの待ち時間
+const DEFAULT_TTL_MINUTES = 24 * 60;
+
 // 日程調整開始通知
 export async function notifyScheduleStart(groupId: string, wishId: string, title: string, liffUrl: string) {
   const charType = await getCharacterType(groupId);
   const msg = messages.scheduleStart[charType];
   const sender = getSender(charType);
-  
-  return sendGroupNotification({
+
+  return queueNotification({
     groupId,
     wishId,
     type: 'schedule_start',
     sender,
+    ttlMinutes: DEFAULT_TTL_MINUTES,
     flexMessage: {
       altText: `「${title}」の日程調整が始まりました`,
       contents: {
@@ -428,12 +432,13 @@ export async function notifyConfirmStart(groupId: string, wishId: string, title:
   const charType = await getCharacterType(groupId);
   const msg = messages.confirmStart[charType];
   const sender = getSender(charType);
-  
-  return sendGroupNotification({
+
+  return queueNotification({
     groupId,
     wishId,
     type: 'confirm_start',
     sender,
+    ttlMinutes: DEFAULT_TTL_MINUTES,
     flexMessage: {
       altText: `「${title}」の参加確認が始まりました`,
       contents: {
@@ -470,18 +475,19 @@ export async function notifyConfirmStart(groupId: string, wishId: string, title:
 export async function notifyReminder(groupId: string, wishId: string, title: string, daysLeft: number, type: 'schedule' | 'confirm', liffUrl: string) {
   const charType = await getCharacterType(groupId);
   const typeLabel = type === 'schedule' ? '日程調整' : '参加確認';
-  const urgency = daysLeft === 1 
+  const urgency = daysLeft === 1
     ? (charType === 'butler' ? '明日が締め切り' : '明日締め切りだよ！')
     : (charType === 'butler' ? `あと${daysLeft}日` : `あと${daysLeft}日だよ〜`);
   const msg = messages.reminder[charType];
   const header = charType === 'butler' ? '🎩 あそじぃ' : '🐧 あそぺん';
   const sender = getSender(charType);
-  
-  return sendGroupNotification({
+
+  return queueNotification({
     groupId,
     wishId,
     type: type === 'schedule' ? 'schedule_reminder' : 'confirm_reminder',
     sender,
+    ttlMinutes: DEFAULT_TTL_MINUTES,
     flexMessage: {
       altText: `「${title}」の${typeLabel}、${urgency}`,
       contents: {
@@ -519,12 +525,13 @@ export async function notifyDateConfirmed(groupId: string, wishId: string, title
   const message = messages.dateConfirmed[charType](title, dateStr);
   const sender = getSender(charType);
 
-  return sendGroupNotification({
+  return queueNotification({
     groupId,
     wishId,
     type: 'date_confirmed',
     message,
-    sender
+    sender,
+    ttlMinutes: DEFAULT_TTL_MINUTES,
   });
 }
 

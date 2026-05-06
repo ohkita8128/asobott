@@ -16,7 +16,9 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const results = {
       reminders: [] as string[],
-      suggestions: [] as string[]
+      suggestions: [] as string[],
+      fallbackPushed: 0,
+      fallbackFailed: 0,
     };
 
     // 0. expire_at 経過した pending_notifications を破棄（push せず）
@@ -24,6 +26,74 @@ export async function GET(request: NextRequest) {
       .from('pending_notifications')
       .delete()
       .lt('expire_at', now.toISOString());
+
+    // 0-2. ttl_at 経過した pending_notifications を push fallback
+    //      （webhook reply で配信されなかったもの。1日1回の cron 周期で fallback）
+    const { data: expiredPending } = await supabase
+      .from('pending_notifications')
+      .select('id, group_id, wish_id, notification_type, payload')
+      .is('claimed_at', null)
+      .not('ttl_at', 'is', null)
+      .lt('ttl_at', now.toISOString());
+
+    for (const p of expiredPending || []) {
+      // 並列実行を避けるため claim する
+      const { data: claimed } = await supabase
+        .from('pending_notifications')
+        .update({ claimed_at: new Date().toISOString() })
+        .eq('id', p.id)
+        .is('claimed_at', null)
+        .select()
+        .single();
+      if (!claimed) continue; // 既に他で claim 済み
+
+      // グループの LINE ID を取得
+      const { data: group } = await supabase
+        .from('groups')
+        .select('line_group_id')
+        .eq('id', p.group_id)
+        .single();
+
+      if (!group?.line_group_id) {
+        // 削除して次へ
+        await supabase.from('pending_notifications').delete().eq('id', p.id);
+        results.fallbackFailed += 1;
+        continue;
+      }
+
+      // LINE Push API
+      const response = await fetch('https://api.line.me/v2/bot/message/push', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
+        },
+        body: JSON.stringify({
+          to: group.line_group_id,
+          messages: [p.payload],
+        }),
+      });
+
+      if (response.ok) {
+        await supabase.from('notification_logs').insert({
+          group_id: p.group_id,
+          wish_id: p.wish_id,
+          notification_type: p.notification_type,
+          delivery_method: 'push',
+        });
+        await supabase.from('pending_notifications').delete().eq('id', p.id);
+        results.fallbackPushed += 1;
+      } else {
+        const errText = await response.text();
+        console.error('Fallback push error:', errText);
+        // claimed_at をリセットして次回再試行
+        await supabase
+          .from('pending_notifications')
+          .update({ claimed_at: null })
+          .eq('id', p.id);
+        results.fallbackFailed += 1;
+      }
+    }
 
     // 1. 締め切り3日前のリマインド（日程調整）
     const threeDaysLater = new Date(now);

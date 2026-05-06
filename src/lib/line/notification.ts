@@ -264,6 +264,13 @@ export async function queueNotification({
       return false;
     }
 
+    // expire_at が ttl_at より早い = reply試行の前にpending破棄が来てしまう
+    // → reply 待ちは諦めて即 push に切替（確実に届ける）
+    if (ttl_at && new Date(expire_at).getTime() < new Date(ttl_at).getTime()) {
+      console.log('Switch to immediate push (expire < ttl):', type, wishId);
+      return sendGroupNotification({ groupId, wishId, type, message, flexMessage, sender });
+    }
+
     // suggestion は1グループ1件に絞る（既存pendingを上書き）
     if (type === 'suggestion') {
       await supabase

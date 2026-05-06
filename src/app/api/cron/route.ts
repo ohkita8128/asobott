@@ -126,7 +126,7 @@ export async function GET(request: NextRequest) {
       const daysLeft = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       const liffUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}/wishes/${wish.id}/schedule/vote?groupId=${wish.group_id}`;
       
-      await notifyReminder(wish.group_id, wish.id, wish.title, daysLeft, 'schedule', liffUrl);
+      await notifyReminder(wish.group_id, wish.id, wish.title, daysLeft, 'schedule', liffUrl, wish.vote_deadline);
       results.reminders.push(`schedule: ${wish.title}`);
     }
 
@@ -158,7 +158,7 @@ export async function GET(request: NextRequest) {
       if (existing) continue;
 
       const liffUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}/wishes/${wish.id}/confirm?groupId=${wish.group_id}`;
-      await notifyReminder(wish.group_id, wish.id, wish.title, 1, 'confirm', liffUrl);
+      await notifyReminder(wish.group_id, wish.id, wish.title, 1, 'confirm', liffUrl, wish.vote_deadline);
       results.reminders.push(`confirm: ${wish.title}`);
     }
 

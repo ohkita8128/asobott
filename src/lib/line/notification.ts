@@ -220,11 +220,12 @@ function isNotificationDisabled(type: NotificationType, settings: { notify_sched
 interface QueueParams extends SendNotificationParams {
   ttlMinutes?: number | null;  // この時間経過後にpush fallback。null = fallbackしない
   expireDays?: number;          // 配信されないままこの日数経過したら破棄
+  expireAt?: string | Date;     // 明示的な失効時刻。指定時は expireDays より優先（リマインドの締切連動などに使う）
 }
 
 export async function queueNotification({
   groupId, wishId, type, message, flexMessage, sender,
-  ttlMinutes = null, expireDays = 30
+  ttlMinutes = null, expireDays = 30, expireAt
 }: QueueParams): Promise<boolean> {
   try {
     // 設定チェック
@@ -253,7 +254,15 @@ export async function queueNotification({
     const payload = buildLineMessage(message, flexMessage, sender);
     const now = new Date();
     const ttl_at = ttlMinutes != null ? new Date(now.getTime() + ttlMinutes * 60 * 1000).toISOString() : null;
-    const expire_at = new Date(now.getTime() + expireDays * 24 * 60 * 60 * 1000).toISOString();
+    const expire_at = expireAt
+      ? (typeof expireAt === 'string' ? new Date(expireAt).toISOString() : expireAt.toISOString())
+      : new Date(now.getTime() + expireDays * 24 * 60 * 60 * 1000).toISOString();
+
+    // expire_at が既に過去ならそもそも queue しない
+    if (new Date(expire_at).getTime() <= now.getTime()) {
+      console.log('Skip queue: expire_at is already past', type, wishId);
+      return false;
+    }
 
     // suggestion は1グループ1件に絞る（既存pendingを上書き）
     if (type === 'suggestion') {
@@ -472,7 +481,15 @@ export async function notifyConfirmStart(groupId: string, wishId: string, title:
 }
 
 // 締め切りリマインド通知
-export async function notifyReminder(groupId: string, wishId: string, title: string, daysLeft: number, type: 'schedule' | 'confirm', liffUrl: string) {
+export async function notifyReminder(
+  groupId: string,
+  wishId: string,
+  title: string,
+  daysLeft: number,
+  type: 'schedule' | 'confirm',
+  liffUrl: string,
+  voteDeadline: string,
+) {
   const charType = await getCharacterType(groupId);
   const typeLabel = type === 'schedule' ? '日程調整' : '参加確認';
   const urgency = daysLeft === 1
@@ -488,6 +505,8 @@ export async function notifyReminder(groupId: string, wishId: string, title: str
     type: type === 'schedule' ? 'schedule_reminder' : 'confirm_reminder',
     sender,
     ttlMinutes: DEFAULT_TTL_MINUTES,
+    // 締切過ぎたら届ける意味がないので、deadline で expire させる
+    expireAt: voteDeadline,
     flexMessage: {
       altText: `「${title}」の${typeLabel}、${urgency}`,
       contents: {

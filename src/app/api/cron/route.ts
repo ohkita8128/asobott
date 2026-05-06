@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
         .eq('id', p.id)
         .is('claimed_at', null)
         .select()
-        .single();
+        .maybeSingle();
       if (!claimed) continue; // 既に他で claim 済み
 
       // グループの LINE ID を取得
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
         .from('groups')
         .select('line_group_id')
         .eq('id', p.group_id)
-        .single();
+        .maybeSingle();
 
       if (!group?.line_group_id) {
         // 削除して次へ
@@ -118,8 +118,8 @@ export async function GET(request: NextRequest) {
         .select('id')
         .eq('wish_id', wish.id)
         .eq('notification_type', 'schedule_reminder')
-        .single();
-      
+        .maybeSingle();
+
       if (existing) continue;
 
       const deadline = new Date(wish.vote_deadline);
@@ -153,8 +153,8 @@ export async function GET(request: NextRequest) {
         .select('id')
         .eq('wish_id', wish.id)
         .eq('notification_type', 'confirm_reminder')
-        .single();
-      
+        .maybeSingle();
+
       if (existing) continue;
 
       const liffUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}/wishes/${wish.id}/confirm?groupId=${wish.group_id}`;
@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
         .eq('notification_type', 'suggestion')
         .order('sent_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (lastSuggestion && !forceDigest) {
         const lastSent = new Date(lastSuggestion.sent_at);

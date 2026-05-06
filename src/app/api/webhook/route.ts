@@ -497,76 +497,88 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
     const userId = event.source.userId;
 
     try {
-      // ユーザー情報を取得・登録
-      const profile = await lineClient.getGroupMemberProfile(lineGroupId!, userId);
-      
-      const { data: userData } = await supabase
+      // ===== ユーザー情報 =====
+      // 既存ユーザーが7日以内に更新されてれば LINE API をスキップ
+      const { data: existingUser } = await supabase
         .from('users')
-        .upsert({
-          line_user_id: userId,
-          display_name: profile.displayName,
-          picture_url: profile.pictureUrl,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'line_user_id',
-        })
-        .select()
-        .single();
+        .select('id, display_name, picture_url, updated_at')
+        .eq('line_user_id', userId)
+        .maybeSingle();
 
-      // グループ情報を取得（グループ名は毎回最新を取得）
-      let { data: groupData } = await supabase
-        .from('groups')
-        .select('id, name')
-        .eq('line_group_id', lineGroupId)
-        .single();
+      const userFreshMs = 7 * 24 * 60 * 60 * 1000;
+      const userIsFresh = !!(existingUser?.display_name && existingUser.updated_at
+        && Date.now() - new Date(existingUser.updated_at).getTime() < userFreshMs);
 
-      // グループ名を取得して更新（毎回最新に）
-      let groupName = null;
-      try {
-        const groupSummary = await lineClient.getGroupSummary(lineGroupId!);
-        groupName = groupSummary.groupName;
-      } catch (e) {
-        console.log('Could not get group name:', e);
+      let userData: { id: string; display_name?: string | null; picture_url?: string | null } | null = existingUser;
+      if (!userIsFresh) {
+        try {
+          const profile = await lineClient.getGroupMemberProfile(lineGroupId!, userId);
+          const { data: upserted } = await supabase
+            .from('users')
+            .upsert({
+              line_user_id: userId,
+              display_name: profile.displayName,
+              picture_url: profile.pictureUrl,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'line_user_id' })
+            .select()
+            .maybeSingle();
+          if (upserted) userData = upserted;
+        } catch (e) {
+          console.log('Could not get member profile:', e);
+          // existingUser があればそれで継続
+        }
       }
 
-      // グループがない、または名前が変わった場合は更新
-      if (!groupData || groupData.name !== groupName) {
-        const { data: upsertedGroup } = await supabase
+      // ===== グループ情報 =====
+      // 既存グループが1日以内に更新されてれば LINE API をスキップ
+      const { data: existingGroup } = await supabase
+        .from('groups')
+        .select('id, name, updated_at')
+        .eq('line_group_id', lineGroupId)
+        .maybeSingle();
+
+      const groupFreshMs = 24 * 60 * 60 * 1000;
+      const groupIsFresh = !!(existingGroup?.name && existingGroup.updated_at
+        && Date.now() - new Date(existingGroup.updated_at).getTime() < groupFreshMs);
+
+      let groupData: { id: string; name?: string | null } | null = existingGroup;
+      if (!groupIsFresh) {
+        let groupName: string | null = existingGroup?.name ?? null;
+        try {
+          const summary = await lineClient.getGroupSummary(lineGroupId!);
+          groupName = summary.groupName;
+        } catch (e) {
+          console.log('Could not get group name:', e);
+        }
+
+        const { data: upserted } = await supabase
           .from('groups')
           .upsert({
             line_group_id: lineGroupId,
             name: groupName,
             last_activity_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-          }, {
-            onConflict: 'line_group_id',
-          })
+          }, { onConflict: 'line_group_id' })
           .select()
-          .single();
-        
-        groupData = upsertedGroup;
-        if (groupName) {
-          console.log('Group name updated:', groupName);
-        }
+          .maybeSingle();
+        if (upserted) groupData = upserted;
       } else {
-        // 名前が同じでもlast_activity_atは更新
+        // 名前が新鮮なので last_activity_at だけ更新（updated_at は触らない＝1日後の再取得タイミングを保つ）
         await supabase
           .from('groups')
           .update({ last_activity_at: new Date().toISOString() })
-          .eq('line_group_id', lineGroupId);
+          .eq('id', existingGroup!.id);
       }
 
-      // group_members に登録
+      // ===== group_members に登録 =====
       if (userData && groupData) {
         await supabase
           .from('group_members')
           .upsert({
             group_id: groupData.id,
             user_id: userData.id,
-          }, {
-            onConflict: 'group_id,user_id',
-          });
-        console.log('Member registered via message:', profile.displayName);
+          }, { onConflict: 'group_id,user_id' });
       }
 
       if (groupData?.id) {
@@ -830,12 +842,41 @@ async function handleMessage(event: WebhookEvent & { type: 'message' }) {
     }
   } catch (err) {
     console.error('Reply error:', err);
-    // claim した pending は claimed_at をリセットして cron に任せる
-    if (claimedPending.length > 0) {
-      await supabase
-        .from('pending_notifications')
-        .update({ claimed_at: null })
-        .in('id', claimedPending.map((p) => p.id));
+
+    // エラー種別判定：@line/bot-sdk の HTTPError は statusCode を持つ
+    const errObj = err as { statusCode?: number; status?: number };
+    const statusCode = errObj?.statusCode ?? errObj?.status;
+    const isClientError = typeof statusCode === 'number' && statusCode >= 400 && statusCode < 500;
+
+    if (isClientError && claimedPending.length > 0 && dbGroupId) {
+      // 4xx（token既使用 / 不正リクエスト 等）: push retry しても成功しないので
+      // 配信済み扱いにして pending を削除（重複push を防ぐ）
+      console.warn(`Reply 4xx (${statusCode}), treating pending as delivered`);
+      try {
+        const logs = claimedPending.map((p) => ({
+          group_id: p.group_id,
+          wish_id: p.wish_id,
+          notification_type: p.notification_type,
+          delivery_method: 'reply',
+        }));
+        await supabase.from('notification_logs').insert(logs);
+        await supabase
+          .from('pending_notifications')
+          .delete()
+          .in('id', claimedPending.map((p) => p.id));
+      } catch (cleanupErr) {
+        console.error('Cleanup after 4xx failed:', cleanupErr);
+      }
+    } else if (claimedPending.length > 0) {
+      // 5xx / network: 再試行可能なので claimed_at をリセットして cron に任せる
+      try {
+        await supabase
+          .from('pending_notifications')
+          .update({ claimed_at: null })
+          .in('id', claimedPending.map((p) => p.id));
+      } catch (resetErr) {
+        console.error('Reset claimed_at failed:', resetErr);
+      }
     }
   }
 }

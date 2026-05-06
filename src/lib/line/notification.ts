@@ -181,8 +181,8 @@ async function getCharacterType(groupId: string): Promise<CharacterType> {
     .from('group_settings')
     .select('character_type')
     .eq('group_id', groupId)
-    .single();
-  
+    .maybeSingle();
+
   return (settings?.character_type as CharacterType) || 'butler';
 }
 
@@ -233,7 +233,7 @@ export async function queueNotification({
       .from('group_settings')
       .select('notify_schedule_start, notify_reminder, notify_confirmed, suggest_enabled')
       .eq('group_id', groupId)
-      .single();
+      .maybeSingle();
     if (isNotificationDisabled(type, settings)) return false;
 
     // 重複チェック（既に配信済みなら queue しない）
@@ -247,6 +247,22 @@ export async function queueNotification({
         .maybeSingle();
       if (existing) {
         console.log('Notification already delivered, skip queue:', type, wishId);
+        return false;
+      }
+    }
+
+    // pending 重複チェック（既に同じ wish + type の pending があれば queue しない）
+    // suggestion は UNIQUE INDEX + 後勝ち削除で別途扱うので除外
+    if (wishId && type !== 'suggestion') {
+      const { data: existingPending } = await supabase
+        .from('pending_notifications')
+        .select('id')
+        .eq('wish_id', wishId)
+        .eq('notification_type', type)
+        .is('claimed_at', null)
+        .maybeSingle();
+      if (existingPending) {
+        console.log('Already pending, skip queue:', type, wishId);
         return false;
       }
     }
@@ -313,7 +329,7 @@ export async function sendGroupNotification({ groupId, wishId, type, message, fl
       .from('group_settings')
       .select('*')
       .eq('group_id', groupId)
-      .single();
+      .maybeSingle();
 
     // 通知が無効な場合はスキップ
     if (settings) {
@@ -331,7 +347,7 @@ export async function sendGroupNotification({ groupId, wishId, type, message, fl
         .eq('group_id', groupId)
         .eq('wish_id', wishId)
         .eq('notification_type', type)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         console.log('Notification already sent:', type, wishId);
@@ -344,7 +360,7 @@ export async function sendGroupNotification({ groupId, wishId, type, message, fl
       .from('groups')
       .select('line_group_id')
       .eq('id', groupId)
-      .single();
+      .maybeSingle();
 
     if (!group?.line_group_id) {
       console.error('No LINE group ID found');
